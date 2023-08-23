@@ -157,7 +157,7 @@ def inpaint(sampler, image, mask, prompt, seed, scale, ddim_steps, num_samples=1
 
 
 def run():
-    st.title("Mewtwo Inpainting")
+    st.title("SD Inpainting")
 
     sampler = initialize_model(sys.argv[1], sys.argv[2])
 

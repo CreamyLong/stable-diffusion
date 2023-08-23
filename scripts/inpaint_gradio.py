@@ -138,7 +138,7 @@ if __name__ == "__main__":
     block = gr.Blocks().queue()
     with block:
         with gr.Row():
-            gr.Markdown("## Mewtwo Inpainting")
+            gr.Markdown("## SD Inpainting")
 
         with gr.Row():
             with gr.Column():
