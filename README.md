@@ -1,4 +1,6 @@
 # Stable Diffusion
+Unofficial Implementation of Stable Diffusion Models
+
 [arXiv](https://arxiv.org/abs/2112.10752) | [BibTeX](#bibtex)
 
 <p align="center">
