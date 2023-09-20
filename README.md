@@ -1,5 +1,9 @@
 # Stable Diffusion
-Unofficial Implementation of Stable Diffusion Models
+Unofficial Implementation of Stable Diffusion
+
+Currently, the config and code in official SD repo is incompleted. Thus, the repo aims to reproduce SD on VARIOUS generation task. If you find it useful, please cite their original paper.
+
+
 
 [arXiv](https://arxiv.org/abs/2112.10752) | [BibTeX](#bibtex)
 
