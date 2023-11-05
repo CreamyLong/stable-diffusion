@@ -27,6 +27,21 @@ Thus, the repo aims to reproduce SD on VARIOUS generation task. If you find it u
 <img src=assets/modelfigure.png />
 </p>
 
+
+## Requirements
+A suitable [conda](https://conda.io/) environment named `ldm` can be created
+and activated with:
+
+```
+conda env create -f environment.yaml
+conda activate ldm
+```
+
+## Pretrained Models
+A general list of all available checkpoints is available in via our [model zoo](#model-zoo).
+If you use any of these models in your work, we are always happy to receive a [citation](#bibtex).
+
+
 # STAGE1: Autoencoder
 
 Training on your own dataset can be beneficial to get better tokens and hence better images for your domain.
@@ -242,18 +257,8 @@ The example below was generated using the above command.
   - A 1.45B [model](#text-to-image) trained on the [LAION-400M](https://arxiv.org/abs/2111.02114) database.
   - A class-conditional model on ImageNet, achieving a FID of 3.6 when using [classifier-free guidance](https://openreview.net/pdf?id=qw8AKxfYbI) Available via a [colab notebook](https://colab.research.google.com/github/CompVis/latent-diffusion/blob/main/scripts/latent_imagenet_diffusion.ipynb) [![][colab]][colab-cin].
   
-## Requirements
-A suitable [conda](https://conda.io/) environment named `ldm` can be created
-and activated with:
 
-```
-conda env create -f environment.yaml
-conda activate ldm
-```
 
-# Pretrained Models
-A general list of all available checkpoints is available in via our [model zoo](#model-zoo).
-If you use any of these models in your work, we are always happy to receive a [citation](#bibtex).
 
 ## Retrieval Augmented Diffusion Models
 ![rdm-figure](assets/rdm-preview.jpg)
