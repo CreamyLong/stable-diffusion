@@ -1,7 +1,10 @@
 # Stable Diffusion
-Unofficial Implementation of Stable Diffusion
 
-Currently, the config and code in official SD repo is incompleted. Thus, the repo aims to reproduce SD on VARIOUS generation task. If you find it useful, please cite their original paper.
+#### Unofficial Implementation of Stable Diffusion
+
+Currently, the config and code in official  [Stable Diffusion ](https://github.com/CompVis/stable-diffusion/tree/main) is incompleted. 
+
+Thus, the repo aims to reproduce SD on VARIOUS generation task. If you find it useful, please cite their original paper.
 
 
 
@@ -14,16 +17,217 @@ Currently, the config and code in official SD repo is incompleted. Thus, the rep
 
 
 [**High-Resolution Image Synthesis with Latent Diffusion Models**](https://arxiv.org/abs/2112.10752)<br/>
-[Robin Rombach](https://github.com/rromb)\*,
-[Andreas Blattmann](https://github.com/ablattmann)\*,
-[Dominik Lorenz](https://github.com/qp-qp)\,
+[Robin Rombach](https://github.com/rromb),
+[Andreas Blattmann](https://github.com/ablattmann),
+[Dominik Lorenz](https://github.com/qp-qp),
 [Patrick Esser](https://github.com/pesser),
 [Björn Ommer](https://hci.iwr.uni-heidelberg.de/Staff/bommer)<br/>
-\* equal contribution
 
 <p align="center">
 <img src=assets/modelfigure.png />
 </p>
+
+# STAGE1: Autoencoder
+
+Training on your own dataset can be beneficial to get better tokens and hence better images for your domain.
+Those are the steps to follow to make this work:
+1. install the repo with `conda env create -f environment.yaml`, `conda activate sd` and `pip install -e .`
+1. put your .jpg files in a folder `your_folder`
+2. create 2 text files a `xx_train.txt` and `xx_test.txt` that point to the files in your training and test set respectively (for example `find $(pwd)/your_folder -name "*.jpg" > train.txt`)
+3. adapt `configs/custom_vqgan.yaml` to point to these 2 files
+4. run `python main.py --base configs/custom_vqgan.yaml -t True --gpus 0,1` to
+   train on two GPUs. Use `--gpus 0,` (with a trailing comma) to train on a single GPU.
+
+### Data preparation
+
+### Faces 
+For downloading the CelebA-HQ and FFHQ datasets, proceed as described in the [taming-transformers](https://github.com/CompVis/taming-transformers#celeba-hq) 
+repository.
+
+### LSUN 
+
+The LSUN datasets can be conveniently downloaded via the script available [here](https://github.com/fyu/lsun).
+We performed a custom split into training and validation images, and provide the corresponding filenames
+at [https://ommer-lab.com/files/lsun.zip](https://ommer-lab.com/files/lsun.zip). 
+After downloading, extract them to `./data/lsun`. The beds/cats/churches subsets should
+also be placed/symlinked at `./data/lsun/bedrooms`/`./data/lsun/cats`/`./data/lsun/churches`, respectively.
+
+### ImageNet
+The code will try to download (through [Academic
+Torrents](http://academictorrents.com/)) and prepare ImageNet the first time it
+is used. However, since ImageNet is quite large, this requires a lot of disk
+space and time. If you already have ImageNet on your disk, you can speed things
+up by putting the data into
+`${XDG_CACHE}/autoencoders/data/ILSVRC2012_{split}/data/` (which defaults to
+`~/.cache/autoencoders/data/ILSVRC2012_{split}/data/`), where `{split}` is one
+of `train`/`validation`. It should have the following structure:
+
+```
+${XDG_CACHE}/autoencoders/data/ILSVRC2012_{split}/data/
+├── n01440764
+│   ├── n01440764_10026.JPEG
+│   ├── n01440764_10027.JPEG
+│   ├── ...
+├── n01443537
+│   ├── n01443537_10007.JPEG
+│   ├── n01443537_10014.JPEG
+│   ├── ...
+├── ...
+```
+
+If you haven't extracted the data, you can also place
+`ILSVRC2012_img_train.tar`/`ILSVRC2012_img_val.tar` (or symlinks to them) into
+`${XDG_CACHE}/autoencoders/data/ILSVRC2012_train/` /
+`${XDG_CACHE}/autoencoders/data/ILSVRC2012_validation/`, which will then be
+extracted into above structure without downloading it again.  Note that this
+will only happen if neither a folder
+`${XDG_CACHE}/autoencoders/data/ILSVRC2012_{split}/data/` nor a file
+`${XDG_CACHE}/autoencoders/data/ILSVRC2012_{split}/.ready` exist. Remove them
+if you want to force running the dataset preparation again.
+
+
+## Model Training
+
+Logs and checkpoints for trained models are saved to `logs/<START_DATE_AND_TIME>_<config_spec>`.
+
+### Training autoencoder models
+
+Configs for training a KL-regularized autoencoder on ImageNet are provided at `configs/autoencoder`.
+Training can be started by running
+```
+CUDA_VISIBLE_DEVICES=<GPU_ID> python main.py --base configs/autoencoder/<config_spec>.yaml -t --gpus 0,    
+```
+where `config_spec` is one of {`autoencoder_kl_8x8x64`(f=32, d=64), `autoencoder_kl_16x16x16`(f=16, d=16), 
+`autoencoder_kl_32x32x4`(f=8, d=4), `autoencoder_kl_64x64x3`(f=4, d=3)}.
+
+For training VQ-regularized models, see the [taming-transformers](https://github.com/CompVis/taming-transformers) 
+repository.
+
+
+
+# STAGE2: Diffusion Model
+
+## Task1：Unconditional Image Synthesis	 
+
+### Training  
+
+In ``configs/latent-diffusion/`` we provide configs for training LDMs on the LSUN-, CelebA-HQ, FFHQ and ImageNet datasets. 
+Training can be started by running
+
+```shell script
+CUDA_VISIBLE_DEVICES=<GPU_ID> python main.py --base configs/latent-diffusion/<config_spec>.yaml -t --gpus 0,
+``` 
+
+where ``<config_spec>`` is one of {`celebahq-ldm-vq-4`(f=4, VQ-reg. autoencoder, spatial size 64x64x3),`ffhq-ldm-vq-4`(f=4, VQ-reg. autoencoder, spatial size 64x64x3),
+`lsun_bedrooms-ldm-vq-4`(f=4, VQ-reg. autoencoder, spatial size 64x64x3),
+`lsun_churches-ldm-vq-4`(f=8, KL-reg. autoencoder, spatial size 32x32x4),`cin-ldm-vq-8`(f=8, VQ-reg. autoencoder, spatial size 32x32x4)}.
+
+
+### inference
+
+We also provide a script for sampling from unconditional LDMs (e.g. LSUN, FFHQ, ...). Start it via
+
+```shell script
+CUDA_VISIBLE_DEVICES=<GPU_ID> python scripts/sample_diffusion.py -r pre_trained_models/ldm/<model_spec>/model.ckpt -l <logdir> -n <\#samples> --batch_size <batch_size> -c <\#ddim steps> -e <\#eta> 
+```
+
+## Task2： Class-conditional Image Synthesis	
+
+### Data preparation
+
+
+### train
+
+
+### inference
+
+
+### ImageNet
+Available via a [notebook](scripts/latent_imagenet_diffusion.ipynb) [![][colab]][colab-cin].
+![class-conditional](assets/birdhouse.png)
+
+[colab]: <https://colab.research.google.com/assets/colab-badge.svg>
+[colab-cin]: <https://colab.research.google.com/github/CompVis/latent-diffusion/blob/main/scripts/latent_imagenet_diffusion.ipynb>
+
+
+## Task3： Inpainting
+
+
+
+
+### Data preparation
+### train
+### inference
+
+![inpainting](assets/inpainting.png)
+
+Download the pre-trained weights
+```
+wget -O models/ldm/inpainting_big/last.ckpt https://heibox.uni-heidelberg.de/f/4d9ac7ea40c64582b7c9/?dl=1
+```
+
+and sample with
+```
+python scripts/inpaint.py --indir data/inpainting_examples/ --outdir outputs/inpainting_results
+```
+`indir` should contain images `*.png` and masks `<image_fname>_mask.png` like
+the examples provided in `data/inpainting_examples`.
+
+
+## Task4： Super-resolution	
+
+
+
+## Task5： Text-to-Image
+![text2img-figure](assets/txt2img-preview.png) 
+
+
+Download the pre-trained weights (5.7GB)
+```
+mkdir -p models/ldm/text2img-large/
+wget -O models/ldm/text2img-large/model.ckpt https://ommer-lab.com/files/latent-diffusion/nitro/txt2img-f8-large/model.ckpt
+```
+and sample with
+```
+python scripts/txt2img.py --prompt "a virus monster is playing guitar, oil on canvas" --ddim_eta 0.0 --n_samples 4 --n_iter 4 --scale 5.0  --ddim_steps 50
+```
+This will save each sample individually as well as a grid of size `n_iter` x `n_samples` at the specified output location (default: `outputs/txt2img-samples`).
+Quality, sampling speed and diversity are best controlled via the `scale`, `ddim_steps` and `ddim_eta` arguments.
+As a rule of thumb, higher values of `scale` produce better samples at the cost of a reduced output diversity.   
+Furthermore, increasing `ddim_steps` generally also gives higher quality samples, but returns are diminishing for values > 250.
+Fast sampling (i.e. low values of `ddim_steps`) while retaining good quality can be achieved by using `--ddim_eta 0.0`.  
+Faster sampling (i.e. even lower values of `ddim_steps`) while retaining good quality can be achieved by using `--ddim_eta 0.0` and `--plms` (see [Pseudo Numerical Methods for Diffusion Models on Manifolds](https://arxiv.org/abs/2202.09778)).
+
+#### Beyond 256²
+
+For certain inputs, simply running the model in a convolutional fashion on larger features than it was trained on
+can sometimes result in interesting results. To try it out, tune the `H` and `W` arguments (which will be integer-divided
+by 8 in order to calculate the corresponding latent size), e.g. run
+
+```
+python scripts/txt2img.py --prompt "a sunset behind a mountain range, vector image" --ddim_eta 1.0 --n_samples 1 --n_iter 1 --H 384 --W 1024 --scale 5.0  
+```
+to create a sample of size 384x1024. Note, however, that controllability is reduced compared to the 256x256 setting. 
+
+The example below was generated using the above command. 
+![text2img-figure-conv](assets/txt2img-convsample.png)
+
+
+## Task6：Layout-to-Image Synthesis	
+
+
+
+
+## Task7： Semantic Image Synthesis	
+
+
+
+
+
+## Task8： Image-to-Image
+
+
+
 
 ## News
 
@@ -119,153 +323,16 @@ Due to their relatively small size, the artbench datasetbases are best suited fo
 - more resolutions
 - image-to-image retrieval
 
-## Text-to-Image
-![text2img-figure](assets/txt2img-preview.png) 
-
-
-Download the pre-trained weights (5.7GB)
-```
-mkdir -p models/ldm/text2img-large/
-wget -O models/ldm/text2img-large/model.ckpt https://ommer-lab.com/files/latent-diffusion/nitro/txt2img-f8-large/model.ckpt
-```
-and sample with
-```
-python scripts/txt2img.py --prompt "a virus monster is playing guitar, oil on canvas" --ddim_eta 0.0 --n_samples 4 --n_iter 4 --scale 5.0  --ddim_steps 50
-```
-This will save each sample individually as well as a grid of size `n_iter` x `n_samples` at the specified output location (default: `outputs/txt2img-samples`).
-Quality, sampling speed and diversity are best controlled via the `scale`, `ddim_steps` and `ddim_eta` arguments.
-As a rule of thumb, higher values of `scale` produce better samples at the cost of a reduced output diversity.   
-Furthermore, increasing `ddim_steps` generally also gives higher quality samples, but returns are diminishing for values > 250.
-Fast sampling (i.e. low values of `ddim_steps`) while retaining good quality can be achieved by using `--ddim_eta 0.0`.  
-Faster sampling (i.e. even lower values of `ddim_steps`) while retaining good quality can be achieved by using `--ddim_eta 0.0` and `--plms` (see [Pseudo Numerical Methods for Diffusion Models on Manifolds](https://arxiv.org/abs/2202.09778)).
-
-#### Beyond 256²
-
-For certain inputs, simply running the model in a convolutional fashion on larger features than it was trained on
-can sometimes result in interesting results. To try it out, tune the `H` and `W` arguments (which will be integer-divided
-by 8 in order to calculate the corresponding latent size), e.g. run
-
-```
-python scripts/txt2img.py --prompt "a sunset behind a mountain range, vector image" --ddim_eta 1.0 --n_samples 1 --n_iter 1 --H 384 --W 1024 --scale 5.0  
-```
-to create a sample of size 384x1024. Note, however, that controllability is reduced compared to the 256x256 setting. 
-
-The example below was generated using the above command. 
-![text2img-figure-conv](assets/txt2img-convsample.png)
 
 
 
-## Inpainting
-![inpainting](assets/inpainting.png)
-
-Download the pre-trained weights
-```
-wget -O models/ldm/inpainting_big/last.ckpt https://heibox.uni-heidelberg.de/f/4d9ac7ea40c64582b7c9/?dl=1
-```
-
-and sample with
-```
-python scripts/inpaint.py --indir data/inpainting_examples/ --outdir outputs/inpainting_results
-```
-`indir` should contain images `*.png` and masks `<image_fname>_mask.png` like
-the examples provided in `data/inpainting_examples`.
-
-## Class-Conditional ImageNet
-
-Available via a [notebook](scripts/latent_imagenet_diffusion.ipynb) [![][colab]][colab-cin].
-![class-conditional](assets/birdhouse.png)
-
-[colab]: <https://colab.research.google.com/assets/colab-badge.svg>
-[colab-cin]: <https://colab.research.google.com/github/CompVis/latent-diffusion/blob/main/scripts/latent_imagenet_diffusion.ipynb>
 
 
-## Unconditional Models
-
-We also provide a script for sampling from unconditional LDMs (e.g. LSUN, FFHQ, ...). Start it via
-
-```shell script
-CUDA_VISIBLE_DEVICES=<GPU_ID> python scripts/sample_diffusion.py -r pre_trained_models/ldm/<model_spec>/model.ckpt -l <logdir> -n <\#samples> --batch_size <batch_size> -c <\#ddim steps> -e <\#eta> 
-```
-
-# Train your own LDMs
-
-## Data preparation
-
-### Faces 
-For downloading the CelebA-HQ and FFHQ datasets, proceed as described in the [taming-transformers](https://github.com/CompVis/taming-transformers#celeba-hq) 
-repository.
-
-### LSUN 
-
-The LSUN datasets can be conveniently downloaded via the script available [here](https://github.com/fyu/lsun).
-We performed a custom split into training and validation images, and provide the corresponding filenames
-at [https://ommer-lab.com/files/lsun.zip](https://ommer-lab.com/files/lsun.zip). 
-After downloading, extract them to `./data/lsun`. The beds/cats/churches subsets should
-also be placed/symlinked at `./data/lsun/bedrooms`/`./data/lsun/cats`/`./data/lsun/churches`, respectively.
-
-### ImageNet
-The code will try to download (through [Academic
-Torrents](http://academictorrents.com/)) and prepare ImageNet the first time it
-is used. However, since ImageNet is quite large, this requires a lot of disk
-space and time. If you already have ImageNet on your disk, you can speed things
-up by putting the data into
-`${XDG_CACHE}/autoencoders/data/ILSVRC2012_{split}/data/` (which defaults to
-`~/.cache/autoencoders/data/ILSVRC2012_{split}/data/`), where `{split}` is one
-of `train`/`validation`. It should have the following structure:
-
-```
-${XDG_CACHE}/autoencoders/data/ILSVRC2012_{split}/data/
-├── n01440764
-│   ├── n01440764_10026.JPEG
-│   ├── n01440764_10027.JPEG
-│   ├── ...
-├── n01443537
-│   ├── n01443537_10007.JPEG
-│   ├── n01443537_10014.JPEG
-│   ├── ...
-├── ...
-```
-
-If you haven't extracted the data, you can also place
-`ILSVRC2012_img_train.tar`/`ILSVRC2012_img_val.tar` (or symlinks to them) into
-`${XDG_CACHE}/autoencoders/data/ILSVRC2012_train/` /
-`${XDG_CACHE}/autoencoders/data/ILSVRC2012_validation/`, which will then be
-extracted into above structure without downloading it again.  Note that this
-will only happen if neither a folder
-`${XDG_CACHE}/autoencoders/data/ILSVRC2012_{split}/data/` nor a file
-`${XDG_CACHE}/autoencoders/data/ILSVRC2012_{split}/.ready` exist. Remove them
-if you want to force running the dataset preparation again.
 
 
-## Model Training
 
-Logs and checkpoints for trained models are saved to `logs/<START_DATE_AND_TIME>_<config_spec>`.
 
-### Training autoencoder models
 
-Configs for training a KL-regularized autoencoder on ImageNet are provided at `configs/autoencoder`.
-Training can be started by running
-```
-CUDA_VISIBLE_DEVICES=<GPU_ID> python main.py --base configs/autoencoder/<config_spec>.yaml -t --gpus 0,    
-```
-where `config_spec` is one of {`autoencoder_kl_8x8x64`(f=32, d=64), `autoencoder_kl_16x16x16`(f=16, d=16), 
-`autoencoder_kl_32x32x4`(f=8, d=4), `autoencoder_kl_64x64x3`(f=4, d=3)}.
-
-For training VQ-regularized models, see the [taming-transformers](https://github.com/CompVis/taming-transformers) 
-repository.
-
-### Training LDMs 
-
-In ``configs/latent-diffusion/`` we provide configs for training LDMs on the LSUN-, CelebA-HQ, FFHQ and ImageNet datasets. 
-Training can be started by running
-
-```shell script
-CUDA_VISIBLE_DEVICES=<GPU_ID> python main.py --base configs/latent-diffusion/<config_spec>.yaml -t --gpus 0,
-``` 
-
-where ``<config_spec>`` is one of {`celebahq-ldm-vq-4`(f=4, VQ-reg. autoencoder, spatial size 64x64x3),`ffhq-ldm-vq-4`(f=4, VQ-reg. autoencoder, spatial size 64x64x3),
-`lsun_bedrooms-ldm-vq-4`(f=4, VQ-reg. autoencoder, spatial size 64x64x3),
-`lsun_churches-ldm-vq-4`(f=8, KL-reg. autoencoder, spatial size 32x32x4),`cin-ldm-vq-8`(f=8, VQ-reg. autoencoder, spatial size 32x32x4)}.
 
 # Model Zoo 
 
@@ -324,17 +391,14 @@ bash scripts/download_models.sh
 The models can then be found in `models/ldm/<model_spec>`.
 
 
-
-## Coming Soon...
-
-* More inference scripts for conditional LDMs.
 * In the meantime, you can play with our colab notebook https://colab.research.google.com/drive/1xqzUi2iXQXDqXBHQGP9Mqt2YrYW6cx-J?usp=sharing
 
 ## Comments 
 
-- Our codebase for the diffusion models builds heavily on [OpenAI's ADM codebase](https://github.com/openai/guided-diffusion)
-and [https://github.com/lucidrains/denoising-diffusion-pytorch](https://github.com/lucidrains/denoising-diffusion-pytorch). 
-Thanks for open-sourcing!
+- My codebase for the diffusion models builds heavily on 
+  - [OpenAI's ADM codebase](https://github.com/openai/guided-diffusion)
+  - [https://github.com/lucidrains/denoising-diffusion-pytorch](https://github.com/lucidrains/denoising-diffusion-pytorch)
+  - Thanks for open-sourcing!
 
 - The implementation of the transformer encoder is from [x-transformers](https://github.com/lucidrains/x-transformers) by [lucidrains](https://github.com/lucidrains?tab=repositories). 
 
