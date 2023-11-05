@@ -233,16 +233,29 @@ The example below was generated using the above command.
 ## Task6：Layout-to-Image Synthesis	
 
 ### Data preparation
-### train
-### inference
 
+### train
+```
+python layout2img.py
+```
+
+### inference
+```
+python layout2img.py
+```
 
 ## Task7： Semantic Image Synthesis	
 
 
 ### Data preparation
+
 ### train
+
 ### inference
+```
+python mask2img.py
+```
+
 
 
 ## Task8： Image-to-Image
