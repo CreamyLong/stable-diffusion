@@ -2,11 +2,21 @@
 
 #### Unofficial Implementation of Stable Diffusion
 
-Currently, the config and code in official  [Stable Diffusion ](https://github.com/CompVis/stable-diffusion/tree/main) is incompleted. 
+Currently, the config and code in official [Stable Diffusion ](https://github.com/CompVis/stable-diffusion/tree/main) is incompleted. 
 
-Thus, the repo aims to reproduce SD on VARIOUS generation task. If you find it useful, please cite their original paper.
+Thus, the repo aims to reproduce SD on different generation task. 
 
+* [Task1:Unconditional Image Synthesis](#Task1:Unconditional Image Synthesis)
+* [Task2:Class-conditional Image Synthesis](#Task2:Class-conditional Image Synthesis)
+* [Task3:Inpainting](#Task3:Inpainting)
+* [Task4:Super-resolution](#Task4:Super-resolution)
+* [Task5:Text-to-Image](#Task5:Text-to-Image)
+* [Task6:Layout-to-Image Synthesis](#Task6:Layout-to-Image Synthesis)
+* [Task7:Semantic Image Synthesis](#Task7:Semantic Image Synthesis)
+* [Task8:Image-to-Image](#Task8:Image-to-Image)
+* [Task9:Depth-to-Image](#Task9:Depth-to-Image)
 
+If you find it useful, please cite their original paper.
 
 [arXiv](https://arxiv.org/abs/2112.10752) | [BibTeX](#bibtex)
 
@@ -122,7 +132,7 @@ repository.
 
 # STAGE2: Diffusion Model
 
-## Task1：Unconditional Image Synthesis	 
+## Task1:Unconditional Image Synthesis	 
 
 ### Training  
 
@@ -146,16 +156,22 @@ We also provide a script for sampling from unconditional LDMs (e.g. LSUN, FFHQ, 
 CUDA_VISIBLE_DEVICES=<GPU_ID> python scripts/sample_diffusion.py -r pre_trained_models/ldm/<model_spec>/model.ckpt -l <logdir> -n <\#samples> --batch_size <batch_size> -c <\#ddim steps> -e <\#eta> 
 ```
 
-## Task2: Class-conditional Image Synthesis	
+## Task2:Class-conditional Image Synthesis	
 
 ### Data preparation
+```
 
+```
 
 ### train
-
+```
+CUDA_VISIBLE_DEVICES=<GPU_ID> python main.py --base configs/latent-diffusion/<config_spec>.yaml -t --gpus 0,
+```
 
 ### inference
-
+```
+class2img.py
+```
 
 ### ImageNet
 Available via a [notebook](scripts/latent_imagenet_diffusion.ipynb) [![][colab]][colab-cin].
@@ -165,15 +181,23 @@ Available via a [notebook](scripts/latent_imagenet_diffusion.ipynb) [![][colab]]
 [colab-cin]: <https://colab.research.google.com/github/CompVis/latent-diffusion/blob/main/scripts/latent_imagenet_diffusion.ipynb>
 
 
-## Task3: Inpainting
-
-
-
+## Task3:Inpainting
 
 ### Data preparation
+```
+python scripts/generate_llama_mask/gen_mask_dataset.py --config scripts/generate_llama_mask/data_gen_configs/random_medium_512.yaml --indir latent-diffusion/data/ --outdir /opt/data/private/latent-diffusion/data/x_inpaint --ext jpg
+python scripts/generate_llama_mask/generate_csv.py --llama_masked_outdir /opt/data/private/latent-diffusion/data/INPAINTING/captain_inpaint/ --csv_out_path data/INPAINTING/x.csv
+```
 ### train
+```
+python main.py --base configs/latent-diffusion/train.yaml -t Ture --gpus 0,1, -x xxx
+```
+
 ### inference
 
+```
+
+```
 ![inpainting](assets/inpainting.png)
 
 Download the pre-trained weights
@@ -189,12 +213,22 @@ python scripts/inpaint.py --indir data/inpainting_examples/ --outdir outputs/inp
 the examples provided in `data/inpainting_examples`.
 
 
-## Task4： Super-resolution	
+## Task4:Super-resolution	
 
 ### Data preparation
-### train
-### inference
+```
 
+```
+### train
+```
+CUDA_VISIBLE_DEVICES=<GPU_ID> python main.py --base configs/latent-diffusion/<config_spec>.yaml -t --gpus 0,
+
+```
+
+### inference
+```
+
+```
 ## Task5： Text-to-Image
 ![text2img-figure](assets/txt2img-preview.png) 
 
@@ -230,13 +264,13 @@ The example below was generated using the above command.
 ![text2img-figure-conv](assets/txt2img-convsample.png)
 
 
-## Task6：Layout-to-Image Synthesis	
+## Task6:Layout-to-Image Synthesis	
 
 ### Data preparation
-
+COCO format
 ### train
 ```
-python layout2img.py
+CUDA_VISIBLE_DEVICES=<GPU_ID> python main.py --base configs/latent-diffusion/<config_spec>.yaml -t --gpus 0,
 ```
 
 ### inference
@@ -244,13 +278,17 @@ python layout2img.py
 python layout2img.py
 ```
 
-## Task7： Semantic Image Synthesis	
+## Task7:Semantic Image Synthesis	
 
 
 ### Data preparation
+```
 
+```
 ### train
-
+```
+CUDA_VISIBLE_DEVICES=<GPU_ID> python main.py --base configs/latent-diffusion/<config_spec>.yaml -t --gpus 0,
+```
 ### inference
 ```
 python mask2img.py
@@ -258,10 +296,8 @@ python mask2img.py
 
 
 
-## Task8： Image-to-Image
+## Task8:Image-to-Image
 
-
-### inference
 
 
 #### Image Modification with Stable Diffusion
@@ -289,7 +325,7 @@ Values that approach 1.0 allow for lots of variations but will also produce imag
 This procedure can, for example, also be used to upscale samples from the base model.
 
 
-
+## Task9:Depth-to-Image
 
 
 ## News

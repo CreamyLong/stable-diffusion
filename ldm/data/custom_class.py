@@ -1,52 +1,55 @@
+# -*- coding: utf-8 -*-
+
 import os
 import numpy as np
 import albumentations
 from torch.utils.data import Dataset
 
-from ldm.data.base import ImagePaths, NumpyPaths, ConcatDatasetWithIndex
+from ldm.data.base import ImagePaths
 
 
 class CustomBase(Dataset):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, size, txt_file="data/train.txt"):
         super().__init__()
-        self.data = None
+        self.class_labels = []
+        self.txt_file = txt_file
 
+        with open(txt_file, "r") as f:
+            self.paths = f.read().splitlines()
+
+        for p in self.paths:
+            name = p.split('/')[-2].split('.')[-1]
+            self.class_labels.append(name)
+        sorted_classes = {x: i for i, x in enumerate(sorted(set(self.class_labels)))}
+        classes = [sorted_classes[x] for x in self.class_labels]
+        print(sorted_classes)
+        labels = {
+            "class_label": np.array(classes),
+        }
+
+        self.data = ImagePaths(paths=self.paths,
+                               labels=labels,
+                               size=size,
+                               random_crop=False,
+                               random_flip=False,
+                               random_rotate=False)
     def __len__(self):
-        return len(self.data)
+        return len(self.paths)
 
     def __getitem__(self, i):
         example = self.data[i]
         return example
 
 class CustomTrain(CustomBase):
-    def __init__(self, size, training_images_list_file="data/train.txt", training_classes_list_file=None):
-        super().__init__()
-        with open(training_images_list_file, "r") as f:
-            paths = f.read().splitlines()
+    def __init__(self, size, training_images_list_file="data/train.txt"):
+        super().__init__(size, training_images_list_file)
+        self.size = size
+        self.txt_file = training_images_list_file
 
-        with open(training_classes_list_file, "r") as f:
-            self.class_labels = f.read().splitlines()
-        labels = {
-            "class_label": self.class_labels,
-        }
-        self.data = ImagePaths(paths=paths,
-                               labels=labels,
-                               size=size,
-                               random_crop=False)
 
 class CustomTest(CustomBase):
-    def __init__(self, size, test_images_list_file="data/test.txt", test_classes_list_file=None):
-        super().__init__()
-        with open(test_images_list_file, "r") as f:
-            paths = f.read().splitlines()
+    def __init__(self, size, test_images_list_file="data/test.txt"):
+        super().__init__(size, test_images_list_file)
 
-        with open(test_classes_list_file, "r") as f:
-            self.class_labels = f.read().splitlines()
-        labels = {
-            "class_label": self.class_labels,
-        }
-        self.data = ImagePaths(paths=paths,
-                               labels=labels,
-                               size=size,
-                               random_crop=False)
-
+        self.size = size
+        self.txt_file = test_images_list_file

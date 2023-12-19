@@ -1,4 +1,3 @@
-
 import argparse, os, glob
 from omegaconf import OmegaConf
 from PIL import Image
