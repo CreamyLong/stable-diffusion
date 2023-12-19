@@ -74,12 +74,12 @@ data:
     num_workers: 3
     wrap: false
     train:
-      target: datatools.yfl_class.CustomTrain
+      target: ldm.custom_class.CustomTrain
       params:
         training_images_list_file: latent-diffusion/data/train.txt
         size: 256
     validation:
-      target: datatools.yfl_class.CustomTest
+      target: ldm.custom_class.CustomTest
       params:
         test_images_list_file: latent-diffusion/data/test.txt
         size: 256

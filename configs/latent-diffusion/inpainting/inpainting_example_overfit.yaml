@@ -71,13 +71,13 @@ data:
     num_workers: 5
     wrap: false
     train:
-      target: datatools.inpainting_dataset.InpaintingTrain
+      target: ldm.inpainting_dataset.InpaintingTrain
       params:
         csv_file: data/INPAINTING/yfl_line.csv
         data_root: data/INPAINTING/yfl_line
         size: 512
     validation:
-      target: datatools.inpainting_dataset.InpaintingValidation
+      target: ldm.inpainting_dataset.InpaintingValidation
       params:
         csv_file: data/INPAINTING/yfl_line.csv
         data_root: data/INPAINTING/yfl_line
