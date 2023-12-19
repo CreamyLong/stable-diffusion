@@ -4,7 +4,7 @@
 
 Currently, the config and code in official [Stable Diffusion ](https://github.com/CompVis/stable-diffusion/tree/main) is incompleted. 
 
-Thus, the repo aims to reproduce SD on different generation task. 
+Thus, the repo aims to reproduce SD on different generation task. I highly recommend you to read the config to understand each fuction.
 
 * [Task1 Unconditional Image Synthesis](#Unconditional)
 * [Task2 Class-conditional Image Synthesis](#Class-conditional)
