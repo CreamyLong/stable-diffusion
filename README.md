@@ -6,15 +6,15 @@ Currently, the config and code in official [Stable Diffusion ](https://github.co
 
 Thus, the repo aims to reproduce SD on different generation task. 
 
-* [Task1:Unconditional Image Synthesis](#Task1:Unconditional Image Synthesis)
-* [Task2:Class-conditional Image Synthesis](#Task2:Class-conditional Image Synthesis)
-* [Task3:Inpainting](#Task3:Inpainting)
-* [Task4:Super-resolution](#Task4:Super-resolution)
-* [Task5:Text-to-Image](#Task5:Text-to-Image)
-* [Task6:Layout-to-Image Synthesis](#Task6:Layout-to-Image Synthesis)
-* [Task7:Semantic Image Synthesis](#Task7:Semantic Image Synthesis)
-* [Task8:Image-to-Image](#Task8:Image-to-Image)
-* [Task9:Depth-to-Image](#Task9:Depth-to-Image)
+* [Task1 Unconditional Image Synthesis](#Unconditional Image Synthesis)
+* [Task2 Class-conditional Image Synthesis](#Class-conditional Image Synthesis)
+* [Task3 Inpainting](#Inpainting)
+* [Task4 Super-resolution](#Super-resolution)
+* [Task5 Text-to-Image](#Text-to-Image)
+* [Task6 Layout-to-Image Synthesis](#Layout-to-Image Synthesis)
+* [Task7 Semantic Image Synthesis](#Semantic Image Synthesis)
+* [Task8 Image-to-Image](#Image-to-Image)
+* [Task9 Depth-to-Image](#Depth-to-Image)
 
 If you find it useful, please cite their original paper.
 
@@ -132,7 +132,7 @@ repository.
 
 # STAGE2: Diffusion Model
 
-## Task1:Unconditional Image Synthesis	 
+## Unconditional Image Synthesis	 
 
 ### Training  
 
@@ -156,7 +156,7 @@ We also provide a script for sampling from unconditional LDMs (e.g. LSUN, FFHQ, 
 CUDA_VISIBLE_DEVICES=<GPU_ID> python scripts/sample_diffusion.py -r pre_trained_models/ldm/<model_spec>/model.ckpt -l <logdir> -n <\#samples> --batch_size <batch_size> -c <\#ddim steps> -e <\#eta> 
 ```
 
-## Task2:Class-conditional Image Synthesis	
+## Class-conditional Image Synthesis	
 
 ### Data preparation
 ```
@@ -181,7 +181,7 @@ Available via a [notebook](scripts/latent_imagenet_diffusion.ipynb) [![][colab]]
 [colab-cin]: <https://colab.research.google.com/github/CompVis/latent-diffusion/blob/main/scripts/latent_imagenet_diffusion.ipynb>
 
 
-## Task3:Inpainting
+## Inpainting
 
 ### Data preparation
 ```
@@ -213,7 +213,7 @@ python scripts/inpaint.py --indir data/inpainting_examples/ --outdir outputs/inp
 the examples provided in `data/inpainting_examples`.
 
 
-## Task4:Super-resolution	
+## Super-resolution	
 
 ### Data preparation
 ```
@@ -229,7 +229,7 @@ CUDA_VISIBLE_DEVICES=<GPU_ID> python main.py --base configs/latent-diffusion/<co
 ```
 
 ```
-## Task5： Text-to-Image
+## Text-to-Image
 ![text2img-figure](assets/txt2img-preview.png) 
 
 
@@ -264,7 +264,7 @@ The example below was generated using the above command.
 ![text2img-figure-conv](assets/txt2img-convsample.png)
 
 
-## Task6:Layout-to-Image Synthesis	
+## Layout-to-Image Synthesis	
 
 ### Data preparation
 COCO format
@@ -278,7 +278,7 @@ CUDA_VISIBLE_DEVICES=<GPU_ID> python main.py --base configs/latent-diffusion/<co
 python layout2img.py
 ```
 
-## Task7:Semantic Image Synthesis	
+## Semantic Image Synthesis	
 
 
 ### Data preparation
@@ -296,7 +296,7 @@ python mask2img.py
 
 
 
-## Task8:Image-to-Image
+## Image-to-Image
 
 
 
@@ -325,7 +325,7 @@ Values that approach 1.0 allow for lots of variations but will also produce imag
 This procedure can, for example, also be used to upscale samples from the base model.
 
 
-## Task9:Depth-to-Image
+## Depth-to-Image
 
 
 ## News
