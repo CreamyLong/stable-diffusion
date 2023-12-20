@@ -215,9 +215,10 @@ the examples provided in `data/inpainting_examples`.
 
 ## Super-resolution	
 
+https://colab.research.google.com/drive/1xqzUi2iXQXDqXBHQGP9Mqt2YrYW6cx-J?usp=sharing
+
 ### Data preparation
 ```
-
 ```
 ### train
 ```
@@ -227,7 +228,6 @@ CUDA_VISIBLE_DEVICES=<GPU_ID> python main.py --base configs/latent-diffusion/<co
 
 ### inference
 ```
-
 ```
 ## Text-to-Image
 ![text2img-figure](assets/txt2img-preview.png) 
