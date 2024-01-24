@@ -90,7 +90,7 @@ The model developers used the following dataset for training the model:
 **Training Procedure**
 Stable Diffusion v1 is a latent diffusion model which combines an autoencoder with a diffusion model that is trained in the latent space of the autoencoder. During training, 
 
-- Images are encoded through an encoder, which turns images into latent representations. The autoencoder uses a relative downsampling factor of 8 and maps images of shape H x W x 3 to latents of shape H/f x W/f x 4
+- Images are encoded through an encoder, which turns images into latent representations. The autoencoder uses a relative downsampling factor of 8 and maps images of shape H x W x 3 to latents of shape H/f x W/f x 4 (autoencoder_kl_32x32x4.yaml)
 - Text prompts are encoded through a ViT-L/14 text-encoder.
 - The non-pooled output of the text encoder is fed into the UNet backbone of the latent diffusion model via cross-attention.
 - The loss is a reconstruction objective between the noise that was added to the latent and the prediction made by the UNet.
