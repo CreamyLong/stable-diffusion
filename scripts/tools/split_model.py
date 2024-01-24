@@ -2,7 +2,7 @@
 import os
 import torch
 
-path = r"D:\PycharmProject\latent-diffusion\logs\2023-05-30T15-14-04_captain256-ldm-vq-4\checkpoints"
+path = r"D:\PycharmProject\checkpoints"
 
 pl_sd = torch.load(os.path.join(path, "last.ckpt"), map_location='cpu')
 print(pl_sd.keys())
