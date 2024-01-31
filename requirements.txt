@@ -9,7 +9,7 @@ test-tube>=0.7.5
 streamlit>=0.73.1
 einops==0.3.0
 torch-fidelity==0.3.0
-transformers==4.3.1
+transformers==4.36.0
 torchmetrics==0.7.0
 kornia==0.6.4
 -e git+https://github.com/arogozhnikov/einops.git@main#egg=einops
