@@ -56,7 +56,7 @@ If you use any of these models in your work, we are always happy to receive a [c
 
 Training on your own dataset can be beneficial to get better tokens and hence better images for your domain.
 Those are the steps to follow to make this work:
-1. install the repo with `conda env create -f environment.yaml`, `conda activate sd` and `pip install -e .`
+1. install the repo with `conda env create -f environment.yaml`, `conda activate ldm` and `pip install -e .`
 1. put your .jpg files in a folder `your_folder`
 2. create 2 text files a `xx_train.txt` and `xx_test.txt` that point to the files in your training and test set respectively (for example `find $(pwd)/your_folder -name "*.jpg" > train.txt`)
 3. adapt `configs/custom_vqgan.yaml` to point to these 2 files
