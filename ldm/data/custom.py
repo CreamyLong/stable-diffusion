@@ -27,7 +27,7 @@ class CustomTrain(CustomBase):
 
 
 class CustomTest(CustomBase):
-    def __init__(self, size, test_images_list_file="data/train.txt"):
+    def __init__(self, size, test_images_list_file="data/test.txt"):
         super().__init__()
         with open(test_images_list_file, "r") as f:
             paths = f.read().splitlines()
