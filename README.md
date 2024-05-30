@@ -190,7 +190,7 @@ python scripts/generate_llama_mask/generate_csv.py --llama_masked_outdir /opt/da
 ```
 ### train
 ```
-python main.py --base configs/latent-diffusion/train.yaml -t Ture --gpus 0,1, -x xxx
+python main.py --base configs/latent-diffusion/inpainting_example_overfit.yaml -t Ture --gpus 0,1, -x xxx
 ```
 
 ### inference
