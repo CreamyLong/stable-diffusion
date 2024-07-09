@@ -73,18 +73,20 @@ data:
   target: main.DataModuleFromConfig
   params:
     batch_size: 1 # (8-23567mb,
-    num_workers: 4
+    num_workers: 0
     wrap: false
     train:
-      target: ldm.data.cls_txt.CustomTrain
+      target: ldm.data.custom_txt.CustomTrain
       params:
         size: 512
-        training_images_list_file: train.txt
+        training_images_list_file: data/coco_images.txt 
+        training_txt_list_file: data/coco_txt.txt"
     validation:
-      target: ldm.data.cls_txt.CustomTest
+      target: ldm.data.custom_txt.CustomTest
       params:
         size: 512
-        test_images_list_file: train.txt
+        test_images_list_file: data/coco_images.txt 
+        test_classes_list_file: data/coco_txt.txt
 
 lightning:
   callbacks:
