@@ -183,7 +183,7 @@ Available via a [notebook](scripts/latent_imagenet_diffusion.ipynb) [![][colab]]
 
 ## Inpainting
 
-### Data preparation
+### data preparation
 ```
 python scripts/generate_llama_mask/gen_mask_dataset.py --config scripts/generate_llama_mask/data_gen_configs/random_medium_512.yaml --indir latent-diffusion/data/ --outdir /opt/data/private/latent-diffusion/data/x_inpaint --ext jpg
 python scripts/generate_llama_mask/generate_csv.py --llama_masked_outdir /opt/data/private/latent-diffusion/data/INPAINTING/captain_inpaint/ --csv_out_path data/INPAINTING/x.csv
@@ -217,19 +217,33 @@ the examples provided in `data/inpainting_examples`.
 
 https://colab.research.google.com/drive/1xqzUi2iXQXDqXBHQGP9Mqt2YrYW6cx-J?usp=sharing
 
-### Data preparation
+### data preparation
 ```
 ```
 ### train
 ```
 CUDA_VISIBLE_DEVICES=<GPU_ID> python main.py --base configs/latent-diffusion/<config_spec>.yaml -t --gpus 0,
-
 ```
 
 ### inference
 ```
 ```
 ## Text-to-Image
+
+### data preparation
+```
+data/coco_images.txt
+data/coco_txt.txt
+```
+
+
+### train
+```
+CUDA_VISIBLE_DEVICES=<GPU_ID> python main.py --base configs/latent-diffusion/txt2img/txt2img-sdv1.yaml -t --gpus 0,
+```
+
+### inference
+
 ![text2img-figure](assets/txt2img-preview.png) 
 
 
@@ -281,7 +295,7 @@ python layout2img.py
 ## Semantic-to-Image
 
 
-### Data preparation
+### data preparation
 ```
 
 ```
@@ -327,6 +341,15 @@ This procedure can, for example, also be used to upscale samples from the base m
 
 ## Depth-to-Image
 
+### data preparation
+```
+```
+### train
+```
+```
+### inference
+```
+```
 
 ## News
 
