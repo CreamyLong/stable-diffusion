@@ -59,8 +59,9 @@ Those are the steps to follow to make this work:
 1. install the repo with `conda env create -f environment.yaml`, `conda activate ldm` and `pip install -e .`
 1. put your .jpg files in a folder `your_folder`
 2. create 2 text files a `xx_train.txt` and `xx_test.txt` that point to the files in your training and test set respectively (for example `find $(pwd)/your_folder -name "*.jpg" > train.txt`)
-3. adapt `configs/custom_vqgan.yaml` to point to these 2 files
-4. run `python main.py --base configs/custom_vqgan.yaml -t True --gpus 0,1` to
+3. copy one of the configs in `configs/autoencoder/` (e.g. `configs/autoencoder/autoencoder_kl_32x32x4.yaml`) and point its `data` section to
+   these 2 files with `ldm.data.custom.CustomTrain` (`training_images_list_file`) / `ldm.data.custom.CustomTest` (`test_images_list_file`)
+4. run `python main.py --base configs/autoencoder/<your_config>.yaml -t True --gpus 0,1` to
    train on two GPUs. Use `--gpus 0,` (with a trailing comma) to train on a single GPU.
 
 ### Data preparation
@@ -550,7 +551,7 @@ All models were trained until convergence (no further substantial improvement in
 
 Running the following script downloads und extracts all available pretrained autoencoding models.   
 ```shell script
-bash scripts/download_first_stages.sh
+bash scripts/download/download_first_stages.sh
 ```
 
 The first stage models can then be found in `models/first_stage_models/<model_spec>`
@@ -577,7 +578,7 @@ The first stage models can then be found in `models/first_stage_models/<model_sp
 The LDMs listed above can jointly be downloaded and extracted via
 
 ```shell script
-bash scripts/download_models.sh
+bash scripts/download/download_models.sh
 ```
 
 The models can then be found in `models/ldm/<model_spec>`.

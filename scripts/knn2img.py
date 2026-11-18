@@ -9,9 +9,14 @@ from tqdm import tqdm, trange
 from itertools import islice
 from einops import rearrange, repeat
 from torchvision.utils import make_grid
-import scann
+try:
+    import scann
+except ImportError:  # only needed for --use_neighbors
+    scann = None
 import time
 from multiprocessing import cpu_count
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from ldm.util import instantiate_from_config, parallel_data_prefetch
 from ldm.models.diffusion.ddim import DDIMSampler
@@ -53,7 +58,6 @@ def load_model_from_config(config, ckpt, verbose=False):
         print("unexpected keys:")
         print(u)
 
-    model.cuda()
     model.eval()
     return model
 
@@ -344,6 +348,7 @@ if __name__ == "__main__":
 
     searcher = None
     if opt.use_neighbors:
+        assert scann is not None, "--use_neighbors requires scann (pip install scann)"
         searcher = Searcher(opt.database)
 
     with torch.no_grad():
@@ -358,7 +363,7 @@ if __name__ == "__main__":
                     uc = None
                     if searcher is not None:
                         nn_dict = searcher(c, opt.knn)
-                        c = torch.cat([c, torch.from_numpy(nn_dict['nn_embeddings']).cuda()], dim=1)
+                        c = torch.cat([c, torch.from_numpy(nn_dict['nn_embeddings']).to(device)], dim=1)
                     if opt.scale != 1.0:
                         uc = torch.zeros_like(c)
                     if isinstance(prompts, tuple):

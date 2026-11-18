@@ -15,6 +15,8 @@ from contextlib import nullcontext
 import time
 from pytorch_lightning import seed_everything
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from ldm.util import instantiate_from_config
 from ldm.models.diffusion.ddim import DDIMSampler
 from ldm.models.diffusion.plms import PLMSSampler
@@ -39,7 +41,6 @@ def load_model_from_config(config, ckpt, verbose=False):
         print("unexpected keys:")
         print(u)
 
-    model.cuda()
     model.eval()
     return model
 
@@ -239,7 +240,8 @@ def main():
     t_enc = int(opt.strength * opt.ddim_steps)
     print(f"target t_enc is {t_enc} steps")
 
-    precision_scope = autocast if opt.precision == "autocast" else nullcontext
+    # autocast("cuda") is only meaningful on a GPU; fall back to full precision on CPU
+    precision_scope = autocast if (opt.precision == "autocast" and device.type == "cuda") else nullcontext
     with torch.no_grad():
         with precision_scope("cuda"):
             with model.ema_scope():

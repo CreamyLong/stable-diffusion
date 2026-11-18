@@ -7,6 +7,8 @@ from tqdm import trange
 from omegaconf import OmegaConf
 from PIL import Image
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+
 from ldm.models.diffusion.ddim import DDIMSampler
 from ldm.util import instantiate_from_config
 
@@ -226,8 +228,9 @@ def get_parser():
 
 def load_model_from_config(config, sd):
     model = instantiate_from_config(config)
-    model.load_state_dict(sd, strict=False)
-    model.cuda()
+    if sd is not None:
+        model.load_state_dict(sd, strict=False)
+    model.to(torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu"))
     model.eval()
     return model
 
