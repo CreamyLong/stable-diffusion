@@ -153,24 +153,38 @@ where ``<config_spec>`` is one of {`celebahq-ldm-vq-4`(f=4, VQ-reg. autoencoder,
 We also provide a script for sampling from unconditional LDMs (e.g. LSUN, FFHQ, ...). Start it via
 
 ```shell script
-CUDA_VISIBLE_DEVICES=<GPU_ID> python scripts/sample_diffusion.py -r pre_trained_models/ldm/<model_spec>/model.ckpt -l <logdir> -n <\#samples> --batch_size <batch_size> -c <\#ddim steps> -e <\#eta> 
+CUDA_VISIBLE_DEVICES=<GPU_ID> python scripts/unconditional_sampling.py -r models/ldm/<model_spec>/model.ckpt -b models/ldm/<model_spec>/config.yaml -l <logdir> -n <\#samples> --batch_size <batch_size> -c <\#ddim steps> -e <\#eta> 
 ```
+Pre-trained unconditional models (CelebA-HQ, FFHQ, LSUN) can be downloaded with `bash scripts/download/download_models.sh`, see also `scripts/sample/unconditional_sample.sh`.
 
 ## Class-conditional	
 
 ### Data preparation
+For a custom dataset (`ldm.data.custom_class`, used by `configs/latent-diffusion/conditional/256_class.yaml`) put the images of each class
+into its own sub-folder; the folder name is used as the class label:
 ```
-
+your_folder/
+├── cat/xxx.jpg
+├── dog/yyy.jpg
+└── ...
 ```
+and write the image paths into a train and a test list, e.g.
+```
+find $(pwd)/your_folder -name "*.jpg" > data/train.txt
+find $(pwd)/your_test_folder -name "*.jpg" > data/test.txt
+```
+Set `n_classes` of the `ClassEmbedder` in the config to `<number of classes> + 1` (the last index is used as the unconditional class
+for classifier-free guidance). For ImageNet (`cin-ldm-vq-f8.yaml`, `cin256-v2.yaml`) see [ImageNet](#imagenet) above.
 
 ### train
 ```
-CUDA_VISIBLE_DEVICES=<GPU_ID> python main.py --base configs/latent-diffusion/<config_spec>.yaml -t --gpus 0,
+CUDA_VISIBLE_DEVICES=<GPU_ID> python main.py --base configs/latent-diffusion/conditional/<config_spec>.yaml -t --gpus 0,
 ```
 
 ### inference
 ```
-class2img.py
+python scripts/class2img.py --config configs/latent-diffusion/conditional/cin256-v2.yaml --ckpt models/ldm/cin256-v2/model.ckpt \
+    --classes 25 187 448 992 --n_samples_per_class 6 --ddim_steps 20 --scale 3.0 --outdir outputs/class2img-samples
 ```
 
 ### ImageNet
@@ -185,18 +199,21 @@ Available via a [notebook](scripts/latent_imagenet_diffusion.ipynb) [![][colab]]
 
 ### data preparation
 ```
-python scripts/generate_llama_mask/gen_mask_dataset.py --config scripts/generate_llama_mask/data_gen_configs/random_medium_512.yaml --indir latent-diffusion/data/ --outdir /opt/data/private/latent-diffusion/data/x_inpaint --ext jpg
-python scripts/generate_llama_mask/generate_csv.py --llama_masked_outdir /opt/data/private/latent-diffusion/data/INPAINTING/captain_inpaint/ --csv_out_path data/INPAINTING/x.csv
+python scripts/generate_llama_mask/gen_mask_dataset.py --config scripts/generate_llama_mask/data_gen_configs/random_medium_512.yaml --indir data/INPAINTING/images --outdir data/INPAINTING/images_inpaint --ext jpg
+python scripts/generate_llama_mask/generate_csv.py --llama_masked_outdir data/INPAINTING/images_inpaint/ --csv_out_path data/INPAINTING/example.csv
 ```
 ### train
 ```
-python main.py --base configs/latent-diffusion/inpainting_example_overfit.yaml -t Ture --gpus 0,1, -x xxx
+python main.py --base configs/latent-diffusion/inpainting/config.yaml -t True --gpus 0, -x inpaint
 ```
+(`configs/latent-diffusion/inpainting/inpainting_example_overfit.yaml` overfits on the examples in `data/inpainting_examples` and is useful for debugging,
+see also `scripts/train/train_inpaint.sh`.)
 
 ### inference
 
 ```
-
+python scripts/inpaint_inference.py --indir data/inpainting_examples --outdir outputs/inpainting_results \
+    --yaml_profile models/ldm/inpainting_big/config.yaml --ckpt models/ldm/inpainting_big/last.ckpt --steps 50 --device cuda
 ```
 ![inpainting](assets/inpainting.png)
 
@@ -207,8 +224,10 @@ wget -O models/ldm/inpainting_big/last.ckpt https://heibox.uni-heidelberg.de/f/4
 
 and sample with
 ```
-python scripts/inpaint.py --indir data/inpainting_examples/ --outdir outputs/inpainting_results
+python scripts/inpaint_inference.py --indir data/inpainting_examples/ --outdir outputs/inpainting_results \
+    --yaml_profile models/ldm/inpainting_big/config.yaml --ckpt models/ldm/inpainting_big/last.ckpt
 ```
+A gradio demo is available via `python scripts/gradio/inpainting.py`.
 `indir` should contain images `*.png` and masks `<image_fname>_mask.png` like
 the examples provided in `data/inpainting_examples`.
 
@@ -218,15 +237,26 @@ the examples provided in `data/inpainting_examples`.
 https://colab.research.google.com/drive/1xqzUi2iXQXDqXBHQGP9Mqt2YrYW6cx-J?usp=sharing
 
 ### data preparation
+`configs/latent-diffusion/superresolution/config.yaml` trains a 4x upscaler (`LR_image` -> `image`) on OpenImages
+(`ldm.data.openimages.SuperresOpenImagesTrain/Validation`). The low-resolution input is created on the fly by degrading the
+high-resolution crop (bicubic/`bsrgan` degradation), so only high-resolution images are needed:
 ```
+data/fullopenimages/
+├── train0/ ... train9/          # images
+├── trainfiles0.txt ... trainfiles9.txt   # relative file names inside train{i}/
+├── validation/
+└── validationfiles.txt
 ```
 ### train
 ```
-CUDA_VISIBLE_DEVICES=<GPU_ID> python main.py --base configs/latent-diffusion/<config_spec>.yaml -t --gpus 0,
+CUDA_VISIBLE_DEVICES=<GPU_ID> python main.py --base configs/latent-diffusion/superresolution/config.yaml -t --gpus 0,
 ```
 
 ### inference
+Download the pre-trained BSR model with `bash scripts/download/download_models.sh` (`models/ldm/bsr_sr`) and run
 ```
+python scripts/superresulution.py --config models/ldm/bsr_sr/config.yaml --ckpt models/ldm/bsr_sr/model.ckpt \
+    --input data/example_conditioning/superresolution/sample_0.jpg --output outputs/sr/sample_0_sr.png --steps 100
 ```
 ## Text-to-Image
 
@@ -254,8 +284,10 @@ wget -O models/ldm/text2img-large/model.ckpt https://ommer-lab.com/files/latent-
 ```
 and sample with
 ```
-python scripts/txt2img.py --prompt "a virus monster is playing guitar, oil on canvas" --ddim_eta 0.0 --n_samples 4 --n_iter 4 --scale 5.0  --ddim_steps 50
+python scripts/txt2img.py --prompt "a virus monster is playing guitar, oil on canvas" --ddim_eta 0.0 --n_samples 4 --n_iter 4 --scale 5.0  --ddim_steps 50 \
+    --config configs/latent-diffusion/txt2img/txt2img-1p4B-eval.yaml --ckpt models/ldm/text2img-large/model.ckpt
 ```
+Use `--plms` or `--dpm` to switch from DDIM to the PLMS / DPM-Solver sampler.
 This will save each sample individually as well as a grid of size `n_iter` x `n_samples` at the specified output location (default: `outputs/txt2img-samples`).
 Quality, sampling speed and diversity are best controlled via the `scale`, `ddim_steps` and `ddim_eta` arguments.
 As a rule of thumb, higher values of `scale` produce better samples at the cost of a reduced output diversity.   
@@ -281,31 +313,60 @@ The example below was generated using the above command.
 ## Layout-to-Image	
 
 ### Data preparation
-COCO format
+Bounding boxes are read from COCO-format annotation files. Two configs are provided:
+
+* `configs/latent-diffusion/layout2img/coco_sg2im_ldm_Layout2I_vqgan_f8.yaml` uses COCO-2017 (`ldm.data.coco.COCOTrain/COCOValidation`):
+  ```
+  data/coco/
+  ├── annotations/instances_train2017.json
+  ├── annotations/instances_val2017.json
+  ├── train2017/*.jpg
+  └── val2017/*.jpg
+  ```
+  (`bash scripts/download/download_coco.sh`; a 100-image subset with the same layout is in `data/coco_annotations_100`.)
+* `configs/latent-diffusion/layout2img/coco_ldm_Layout2I_vqgan_f8.yaml` uses your own COCO-format dataset (`ldm.data.custom_layout`):
+  ```
+  data/<your_dataset>/
+  ├── annotations/instances_train.json
+  ├── annotations/instances_val.json
+  ├── train/*.jpg
+  └── val/*.jpg
+  ```
+  The dataset root and the number of categories are set in `ldm/data/custom_layout.py`.
+
 ### train
 ```
-CUDA_VISIBLE_DEVICES=<GPU_ID> python main.py --base configs/latent-diffusion/<config_spec>.yaml -t --gpus 0,
+CUDA_VISIBLE_DEVICES=<GPU_ID> python main.py --base configs/latent-diffusion/layout2img/<config_spec>.yaml -t --gpus 0,
 ```
 
 ### inference
 ```
-python layout2img.py
+python scripts/layout2img.py --config configs/latent-diffusion/layout2img/coco_ldm_Layout2I_vqgan_f8.yaml \
+    --ckpt logs/<run_dir>/checkpoints/last.ckpt --split validation --batch_size 4 --ddim_steps 200 --outdir outputs/layout2img-samples
 ```
+For every layout the bounding-box visualisation (`*_bbox.png`) and the generated image are saved.
 
 ## Semantic-to-Image
 
 
 ### data preparation
+`configs/latent-diffusion/mask2img/config.yaml` uses `ldm.data.custom_segmentation` (based on `ldm.data.seg_dataset.SegmentationBase`).
+Each line of the list file is a relative image path; the segmentation map is a single-channel PNG with the same relative name:
 ```
-
+data/sflckr_examples.txt          # e.g. canada/256743165_9f130ba95b_b.jpg
+data/sflckr_images/canada/256743165_9f130ba95b_b.jpg
+data/sflckr_segmentations/canada/256743165_9f130ba95b_b.png
 ```
+Segmentation maps for your own images can be produced with the COCO-Stuff DeepLab model:
+`DEEPLAB_CKPT=<deeplabv2_resnet101_msc-cocostuff164k-100000.pth> python scripts/tools/extract_segmentation.py <dest>`.
 ### train
 ```
-CUDA_VISIBLE_DEVICES=<GPU_ID> python main.py --base configs/latent-diffusion/<config_spec>.yaml -t --gpus 0,
+CUDA_VISIBLE_DEVICES=<GPU_ID> python main.py --base configs/latent-diffusion/mask2img/config.yaml -t --gpus 0,
 ```
 ### inference
 ```
-python mask2img.py
+python scripts/mask2img.py --config models/ldm/semantic_synthesis256/config.yaml --ckpt models/ldm/semantic_synthesis256/model.ckpt \
+    --split validation --batch_size 1 --ddim_steps 200 --outdir outputs/mask2img-samples
 ```
 
 
@@ -341,15 +402,34 @@ This procedure can, for example, also be used to upscale samples from the base m
 
 ## Depth-to-Image
 
+Depth-conditioned Stable Diffusion 2 (`ldm.models.diffusion.ddpm.LatentDepth2ImageDiffusion`). The depth of the input image is
+estimated with [MiDaS](https://github.com/isl-org/MiDaS) (`ldm/modules/midas`), resized to the latent resolution and concatenated
+to the noisy latent (`conditioning_key: hybrid`), the prompt is encoded with OpenCLIP ViT-H/14 (`FrozenOpenCLIPEmbedder`).
+
+Additional requirements: `pip install open_clip_torch timm`
+
 ### data preparation
+Download the weights
 ```
+mkdir -p models/ldm/stable-diffusion-v2-depth midas_models
+wget -O models/ldm/stable-diffusion-v2-depth/512-depth-ema.ckpt https://huggingface.co/stabilityai/stable-diffusion-2-depth/resolve/main/512-depth-ema.ckpt
+wget -O midas_models/dpt_hybrid-midas-501f0c75.pt https://github.com/isl-org/MiDaS/releases/download/v3/dpt_hybrid-midas-501f0c75.pt
 ```
+For fine-tuning, a dataset has to return `jpg` (image in `[-1, 1]`, `h w c`), `txt` (caption) and `midas_in`
+(the image after `ldm.modules.midas.api.load_midas_transform("dpt_hybrid")`, `c h w`).
 ### train
+Fine-tune from a text-to-image SD2 checkpoint by adding `ckpt_path: <sd2.ckpt>` and
+`finetune_keys: ["model.diffusion_model.input_blocks.0.0.weight"]` to the model params (the additional depth input channel is zero-initialised), then
 ```
+CUDA_VISIBLE_DEVICES=<GPU_ID> python main.py --base configs/stable-diffusion/v2-midas-inference.yaml -t --gpus 0,
 ```
 ### inference
 ```
+python scripts/depth2img.py --init_img <path-to-img.jpg> --prompt "a photo of a futuristic city, highly detailed" \
+    --config configs/stable-diffusion/v2-midas-inference.yaml --ckpt models/ldm/stable-diffusion-v2-depth/512-depth-ema.ckpt \
+    --strength 0.8 --steps 50 --scale 9.0 --n_samples 2
 ```
+`strength` controls how much of the input is destroyed (1.0 = keep only the depth structure). The estimated depth map is saved next to the samples.
 
 ## News
 

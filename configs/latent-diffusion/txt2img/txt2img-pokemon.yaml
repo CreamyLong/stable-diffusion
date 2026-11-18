@@ -2,7 +2,7 @@ model:
   base_learning_rate: 1.0e-06
   target: ldm.models.diffusion.ddpm.LatentDiffusion
   params:
-#    ckpt_path: "/opt/data/private/latent-diffusion/models/ldm/stable-diffusion-v1/sd-v1-4.ckpt"
+#    ckpt_path: "models/ldm/stable-diffusion-v1/sd-v1-4.ckpt"
 
     linear_start: 0.00085
     linear_end: 0.0120
@@ -81,15 +81,15 @@ data:
     num_workers: 5
     wrap: false
     train:
-      target: ldm.pokemon_blip_captions.CustomTrain
+      target: ldm.data.pokemon_blip_captions.CustomTrain
       params:
         size: 128
-        data: /opt/data/private/latent-diffusion/data/pokemon-blip-captions/train-00000-of-00001-566cc9b19d7203f8.parquet
+        data: data/pokemon-blip-captions/train-00000-of-00001-566cc9b19d7203f8.parquet
     validation:
-      target: ldm.pokemon_blip_captions.CustomTest
+      target: ldm.data.pokemon_blip_captions.CustomTest
       params:
         size: 128
-        data: /opt/data/private/latent-diffusion/data/pokemon-blip-captions/train-00000-of-00001-566cc9b19d7203f8.parquet
+        data: data/pokemon-blip-captions/train-00000-of-00001-566cc9b19d7203f8.parquet
 
 lightning:    #(optional, has sane defaults and can be specified on cmdline)
   callbacks:

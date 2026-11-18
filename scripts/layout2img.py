@@ -3,7 +3,6 @@ sys.path.append(os.getcwd())
 
 from pytorch_lightning import seed_everything
 
-from scripts.unconditional_sampling import load_model_from_config, load_model
 from omegaconf import OmegaConf
 import numpy as np
 import PIL
@@ -16,7 +15,21 @@ from einops import rearrange
 
 import torch
 from torch.utils.data import DataLoader, Dataset
+from ldm.util import instantiate_from_config
 from ldm.data.custom_layout import customTrain, customValidation
+
+
+def load_model(config, ckpt, device):
+    model = instantiate_from_config(config.model)
+    if ckpt:
+        print(f"Loading model from {ckpt}")
+        pl_sd = torch.load(ckpt, map_location="cpu")
+        sd = pl_sd["state_dict"] if "state_dict" in pl_sd else pl_sd
+        m, u = model.load_state_dict(sd, strict=False)
+        print(f"missing keys: {len(m)}, unexpected keys: {len(u)}")
+    model.to(device)
+    model.eval()
+    return model
 
 
 def main():
@@ -30,14 +43,32 @@ def main():
     parser.add_argument(
         "--config",
         type=str,
-        default="/opt/data/private/latent-diffusion/configs/latent-diffusion/layout2img/blade256_ldm_Layout2I_vqgan_f4.yaml",
+        default="configs/latent-diffusion/layout2img/coco_ldm_Layout2I_vqgan_f8.yaml",
         help="path to config which constructs model",
     )
     parser.add_argument(
         "--ckpt",
         type=str,
-        default="/opt/data/private/latent-diffusion/logs/2023-06-25T12-33-31_blade256_ldm_Layout2I_vqgan_f4/checkpoints/last.ckpt",
+        default="models/ldm/layout2img/last.ckpt",
         help="path to checkpoint of model",
+    )
+    parser.add_argument(
+        "--split",
+        type=str,
+        default="validation",
+        choices=["train", "validation"],
+        help="which split of ldm.data.custom_layout to take the layouts from",
+    )
+    parser.add_argument(
+        "--n_batches",
+        type=int,
+        default=-1,
+        help="stop after this many batches (-1: the whole dataset)",
+    )
+    parser.add_argument(
+        "--plms",
+        action='store_true',
+        help="use plms sampling",
     )
     parser.add_argument(
         "--batch_size",
@@ -74,14 +105,14 @@ def main():
     parser.add_argument(
         "--f",
         type=int,
-        default=4,
+        default=8,
         help="downsampling factor",
     )
 
     parser.add_argument(
         "--C",
         type=int,
-        default=3,
+        default=4,
         help="latent channels",
     )
 
@@ -90,17 +121,10 @@ def main():
     seed_everything(opt.seed)
     config = OmegaConf.load(f"{opt.config}")
 
-    print(config)
-    # model = load_model_from_config(config, f"{opt.ckpt}")
-    model, _ = load_model(config, f"{opt.ckpt}", None, None)
-
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
-    model = model.to(device)
+    model = load_model(config, opt.ckpt, device)
 
-    # if opt.plms:
-    #     sampler = PLMSSampler(model)
-    # else:
-    sampler = DDIMSampler(model)
+    sampler = PLMSSampler(model) if opt.plms else DDIMSampler(model)
 
     os.makedirs(opt.outdir, exist_ok=True)
     outpath = opt.outdir
@@ -108,9 +132,9 @@ def main():
     batch_size = opt.batch_size
 
     ######读取数据集########
-    dataset = customTrain(size=256)
+    dataset = customTrain(size=opt.H) if opt.split == "train" else customValidation(size=opt.H)
 
-    dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=2, shuffle=True)
+    dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=2, shuffle=False)
 
     mapper = dataset.conditional_builders["objects_bbox"]  # objects_bbox
 
@@ -122,14 +146,17 @@ def main():
     with torch.no_grad():
         with model.ema_scope():
             for i, batch in enumerate(dataloader):
-                objects_bbox = batch['objects_bbox'].to('cuda')
+                if 0 <= opt.n_batches <= i:
+                    break
+                objects_bbox = batch['objects_bbox'].to(device)
                 # print(objects_bbox)
                 c = model.get_learned_conditioning(objects_bbox)
                 shape = [opt.C, opt.H // opt.f, opt.W // opt.f]
                 samples_ddim, _ = sampler.sample(S=opt.ddim_steps,
                                                  conditioning=c,
-                                                 batch_size=batch_size,
+                                                 batch_size=objects_bbox.shape[0],
                                                  shape=shape,
+                                                 verbose=False,
                                                  )
 
 
@@ -148,7 +175,7 @@ def main():
 
                 for j, tknzd_bbox in enumerate(batch["objects_bbox"]):
                     # print(tknzd_bbox)
-                    bboximg = mapper.plot(tknzd_bbox.detach().cpu(), map_fn, (256, 256))  # 把输出图形大小设置为256*256
+                    bboximg = mapper.plot(tknzd_bbox.detach().cpu(), map_fn, (opt.W, opt.H))  # 把输出图形大小设置为256*256
                     bbox_imgs.append(bboximg)
                     # Image.fromarray(toPIL(bboximg)).save(os.path.join(outpath, f"{i:05}_bbox.png"))
                     pic = toPIL(bboximg)

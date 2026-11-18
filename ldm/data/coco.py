@@ -175,3 +175,60 @@ class CocoImagesAndCaptionsValidation(CocoBase):
 
     def get_split(self):
         return "validation"
+
+# ---------------------------------------------------------------------------
+# Layout-to-image (bounding boxes) on COCO, used by
+# configs/latent-diffusion/layout2img/coco_sg2im_ldm_Layout2I_vqgan_f8.yaml
+# ---------------------------------------------------------------------------
+from ldm.data.annotated_objects_custom import AnnotatedObjectCustom
+from ldm.data.custom_config import COCO_PATH_STRUCTURE
+
+
+class COCOLayoutBase(AnnotatedObjectCustom):
+    """COCO-2017 images + instance bounding boxes.
+
+    Expected folder structure (``data_path``)::
+
+        data/coco/
+        ├── annotations
+        │   ├── instances_train2017.json
+        │   └── instances_val2017.json
+        ├── train2017
+        │   └── *.jpg
+        └── val2017
+            └── *.jpg
+    """
+
+    def get_path_structure(self):
+        if self.split not in COCO_PATH_STRUCTURE:
+            raise ValueError(f'Split [{self.split}] does not exist for COCO data.')
+        return COCO_PATH_STRUCTURE[self.split]
+
+
+def _coco_layout_kwargs(size, data_path, split, **kwargs):
+    params = dict(data_path=data_path,
+                  split=split,
+                  keys=['image', 'objects_bbox'],
+                  no_tokens=8192,
+                  target_image_size=size,
+                  min_object_area=0.02,
+                  min_objects_per_image=3,
+                  max_objects_per_image=8,
+                  crop_method='center',
+                  random_flip=False,
+                  use_group_parameter=True,
+                  encode_crop=False)
+    params.update(kwargs)
+    return params
+
+
+class COCOTrain(COCOLayoutBase):
+    def __init__(self, size=256, data_path='data/coco', **kwargs):
+        kwargs.setdefault('crop_method', 'random-2d')
+        kwargs.setdefault('random_flip', True)
+        super().__init__(**_coco_layout_kwargs(size, data_path, 'train', **kwargs))
+
+
+class COCOValidation(COCOLayoutBase):
+    def __init__(self, size=256, data_path='data/coco', **kwargs):
+        super().__init__(**_coco_layout_kwargs(size, data_path, 'validation', **kwargs))

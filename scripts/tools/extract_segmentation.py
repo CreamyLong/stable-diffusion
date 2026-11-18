@@ -15,7 +15,7 @@ import torch.nn.functional as F
 # download deeplabv2_resnet101_msc-cocostuff164k-100000.pth from
 # https://github.com/kazuto1011/deeplab-pytorch/releases/download/v1.0/deeplabv2_resnet101_msc-cocostuff164k-100000.pth
 # and put the path here
-CKPT_PATH = "TODO"
+CKPT_PATH = os.environ.get("DEEPLAB_CKPT", "models/deeplab/deeplabv2_resnet101_msc-cocostuff164k-100000.pth")
 
 rescale = lambda x: (x + 1.) / 2.
 
@@ -32,7 +32,8 @@ class COCOStuffSegmenter(nn.Module):
         self.n_labels = 182
         model = torch.hub.load("kazuto1011/deeplab-pytorch", "deeplabv2_resnet101", n_classes=self.n_labels)
         ckpt_path = CKPT_PATH
-        model.load_state_dict(torch.load(ckpt_path))
+        assert os.path.exists(ckpt_path), f"DeepLab checkpoint not found at {ckpt_path}, set DEEPLAB_CKPT"
+        model.load_state_dict(torch.load(ckpt_path, map_location="cpu"))
         self.model = model
 
         normalize = torchvision.transforms.Normalize(mean=self.mean, std=self.std)

@@ -729,7 +729,7 @@ class LatentDiffusion(DDPM):
             if cond_key is None:
                 cond_key = self.cond_stage_key
             if cond_key != self.first_stage_key:
-                if cond_key in ['caption', 'objects_bbox']:
+                if cond_key in ['caption', 'objects_bbox', 'txt']:
                     xc = batch[cond_key]
                 elif cond_key == 'class_label':
                     xc = batch
@@ -1917,4 +1917,107 @@ class LatentInpaintDiffusion(LatentDiffusion):
         return log
 
 
+class LatentDepth2ImageDiffusion(LatentDiffusion):
+    """
+    Depth-conditioned latent diffusion (Stable Diffusion 2 depth2img).
+    The monocular depth of the input image is estimated with MiDaS, resized to the
+    latent resolution, normalised to [-1, 1] and concatenated to the noisy latent
+    (conditioning_key: hybrid -> depth via concat, text via cross-attention).
+    Adapted from https://github.com/Stability-AI/stablediffusion
+    """
 
+    def __init__(self, depth_stage_config, concat_keys=("midas_in",),
+                 finetune_keys=("model.diffusion_model.input_blocks.0.0.weight",
+                                "model_ema.diffusion_modelinput_blocks00weight"),
+                 keep_finetune_dims=4,
+                 *args, **kwargs):
+        ckpt_path = kwargs.pop("ckpt_path", None)
+        ignore_keys = kwargs.pop("ignore_keys", list())
+        super().__init__(*args, **kwargs)
+        self.depth_model = instantiate_from_config(depth_stage_config)
+        self.concat_keys = concat_keys
+        self.depth_stage_key = concat_keys[0]
+        self.finetune_keys = finetune_keys
+        self.keep_dims = keep_finetune_dims
+        if exists(self.finetune_keys):
+            assert exists(ckpt_path), 'can only finetune from a given checkpoint'
+        if exists(ckpt_path):
+            self.init_from_ckpt(ckpt_path, ignore_keys)
+
+    def init_from_ckpt(self, path, ignore_keys=list(), only_model=False):
+        sd = torch.load(path, map_location="cpu")
+        if "state_dict" in list(sd.keys()):
+            sd = sd["state_dict"]
+        for k in list(sd.keys()):
+            for ik in ignore_keys:
+                if k.startswith(ik):
+                    print("Deleting key {} from state_dict.".format(k))
+                    del sd[k]
+                    break
+            # finetune from a txt2img checkpoint: zero-init the extra (depth) input channel
+            if k in sd and exists(getattr(self, "finetune_keys", None)) and k in self.finetune_keys:
+                new_entry = None
+                for name, param in self.named_parameters():
+                    if name in self.finetune_keys:
+                        print(f"modifying key '{name}' and keeping its original {self.keep_dims} (channels) dimensions only")
+                        new_entry = torch.zeros_like(param)
+                assert exists(new_entry), 'did not find matching parameter to modify'
+                new_entry[:, :self.keep_dims, ...] = sd[k]
+                sd[k] = new_entry
+        missing, unexpected = self.load_state_dict(sd, strict=False) if not only_model \
+            else self.model.load_state_dict(sd, strict=False)
+        print(f"Restored from {path} with {len(missing)} missing and {len(unexpected)} unexpected keys")
+
+    @torch.no_grad()
+    def get_depth_conditioning(self, midas_in, latent_shape):
+        cc = self.depth_model(midas_in)
+        cc = torch.nn.functional.interpolate(cc, size=latent_shape[-2:], mode="bicubic", align_corners=False)
+        depth_min = torch.amin(cc, dim=[1, 2, 3], keepdim=True)
+        depth_max = torch.amax(cc, dim=[1, 2, 3], keepdim=True)
+        return 2. * (cc - depth_min) / (depth_max - depth_min + 0.001) - 1.
+
+    @torch.no_grad()
+    def get_input(self, batch, k, cond_key=None, bs=None, return_first_stage_outputs=False, **kwargs):
+        # note: restricted to non-trainable encoders currently
+        assert not self.cond_stage_trainable, 'trainable cond stages not yet supported for depth2img'
+        z, c, x, xrec, xc = super().get_input(batch, self.first_stage_key, return_first_stage_outputs=True,
+                                              force_c_encode=True, return_original_cond=True, bs=bs)
+        assert exists(self.concat_keys) and len(self.concat_keys) == 1
+        cc = batch[self.depth_stage_key]
+        if bs is not None:
+            cc = cc[:bs]
+        cc = cc.to(self.device)
+        c_cat = self.get_depth_conditioning(cc, z.shape)
+        all_conds = {"c_concat": [c_cat], "c_crossattn": [c]}
+        if return_first_stage_outputs:
+            return z, all_conds, x, xrec, xc
+        return z, all_conds
+
+    @torch.no_grad()
+    def log_images(self, batch, N=4, n_row=4, sample=True, ddim_steps=50, ddim_eta=0.,
+                   unconditional_guidance_scale=9.0, unconditional_guidance_label=("",), **kwargs):
+        log = dict()
+        z, c, x, xrec, xc = self.get_input(batch, self.first_stage_key, bs=N, return_first_stage_outputs=True)
+        N = min(x.shape[0], N)
+        log["inputs"] = x
+        log["reconstruction"] = xrec
+        if self.cond_stage_key in ["caption", "txt"]:
+            log["conditioning"] = log_txt_as_img((x.shape[2], x.shape[3]), batch[self.cond_stage_key][:N],
+                                                 size=x.shape[2] // 25)
+        depth = self.depth_model(batch[self.depth_stage_key][:N].to(self.device))
+        d_min = torch.amin(depth, dim=[1, 2, 3], keepdim=True)
+        d_max = torch.amax(depth, dim=[1, 2, 3], keepdim=True)
+        log["depth"] = 2. * (depth - d_min) / (d_max - d_min + 0.001) - 1.
+        if sample:
+            uc = None
+            if unconditional_guidance_scale > 1.0:
+                label = list(unconditional_guidance_label) if not isinstance(unconditional_guidance_label, str) \
+                    else [unconditional_guidance_label]
+                uc_cross = self.get_unconditional_conditioning(N, label)
+                uc = {"c_concat": c["c_concat"], "c_crossattn": [uc_cross]}
+            with self.ema_scope("Sampling"):
+                samples, _ = self.sample_log(cond=c, batch_size=N, ddim=True, ddim_steps=ddim_steps, eta=ddim_eta,
+                                             unconditional_guidance_scale=unconditional_guidance_scale,
+                                             unconditional_conditioning=uc)
+            log["samples"] = self.decode_first_stage(samples)
+        return log

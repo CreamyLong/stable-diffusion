@@ -14,8 +14,8 @@ class DPMSolverSampler(object):
 
     def register_buffer(self, name, attr):
         if type(attr) == torch.Tensor:
-            if attr.device != torch.device("cuda"):
-                attr = attr.to(torch.device("cuda"))
+            # keep the schedule on the same device as the model (works on CPU-only machines too)
+            attr = attr.to(self.model.device)
         setattr(self, name, attr)
 
     @torch.no_grad()
@@ -45,7 +45,10 @@ class DPMSolverSampler(object):
                ):
         if conditioning is not None:
             if isinstance(conditioning, dict):
-                cbs = conditioning[list(conditioning.keys())[0]].shape[0]
+                ctmp = conditioning[list(conditioning.keys())[0]]
+                while isinstance(ctmp, list):
+                    ctmp = ctmp[0]
+                cbs = ctmp.shape[0]
                 if cbs != batch_size:
                     print(f"Warning: Got {cbs} conditionings but batch-size is {batch_size}")
             else:

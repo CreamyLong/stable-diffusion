@@ -1,5 +1,15 @@
-python scripts/generate_llama_mask/gen_mask_dataset.py --config scripts/generate_llama_mask/data_gen_configs/random_medium_512.yaml --indir /opt/data/private/latent-diffusion/data/captain --outdir /opt/data/private/latent-diffusion/data/captain_inpaint --ext jpg
+#!/bin/bash
+# Train an inpainting LDM. Run from the repository root.
+# 1) generate LaMa-style random masks for your images
+IMAGES=${IMAGES:-data/INPAINTING/images}
+MASKED=${MASKED:-data/INPAINTING/images_inpaint}
+python scripts/generate_llama_mask/gen_mask_dataset.py \
+    --config scripts/generate_llama_mask/data_gen_configs/random_medium_512.yaml \
+    --indir "${IMAGES}" --outdir "${MASKED}" --ext jpg
 
-python scripts/generate_llama_mask/generate_csv.py --llama_masked_outdir /opt/data/private/latent-diffusion/data/INPAINTING/captain_inpaint/ --csv_out_path data/INPAINTING/captain.csv
+# 2) build the csv consumed by the inpainting dataset
+python scripts/generate_llama_mask/generate_csv.py \
+    --llama_masked_outdir "${MASKED}/" --csv_out_path data/INPAINTING/example.csv
 
-python main.py --base configs/latent-diffusion/train.yaml -t Ture --gpus 0,1, -x cap
+# 3) train
+python main.py --base configs/latent-diffusion/inpainting/config.yaml -t True --gpus ${GPUS:-0,} -x inpaint
