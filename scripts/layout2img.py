@@ -105,15 +105,15 @@ def main():
     parser.add_argument(
         "--f",
         type=int,
-        default=8,
-        help="downsampling factor",
+        default=None,
+        help="downsampling factor (default: read from the model config)",
     )
 
     parser.add_argument(
         "--C",
         type=int,
-        default=4,
-        help="latent channels",
+        default=None,
+        help="latent channels (default: read from the model config)",
     )
 
     opt = parser.parse_args()
@@ -123,6 +123,11 @@ def main():
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model = load_model(config, opt.ckpt, device)
+    if opt.C is None:
+        opt.C = model.channels
+    if opt.f is None:
+        opt.f = 2 ** (len(config.model.params.first_stage_config.params.ddconfig.ch_mult) - 1)
+    print(f"latent shape: C={opt.C}, f={opt.f}")
 
     sampler = PLMSSampler(model) if opt.plms else DDIMSampler(model)
 
