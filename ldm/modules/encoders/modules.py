@@ -50,7 +50,7 @@ class TransformerEmbedder(AbstractEncoder):
                                               attn_layers=Encoder(dim=n_embed, depth=n_layer))
 
     def forward(self, tokens):
-        tokens = tokens.to(next(self.transformer.parameters()).device)  # follow the module, not the `device` arg
+        tokens = tokens.to(self.transformer.token_emb.weight.device)  # follow the module, not the `device` arg
         z = self.transformer(tokens, return_embeddings=True)
         return z
 
@@ -106,7 +106,8 @@ class BERTEmbedder(AbstractEncoder):
             tokens = self.tknz_fn(text)  # .to(self.device)
         else:
             tokens = text
-        tokens = tokens.to(next(self.transformer.parameters()).device)
+        # read the device from the weight itself: DataParallel replicas have an empty parameters()
+        tokens = tokens.to(self.transformer.token_emb.weight.device)
         z = self.transformer(tokens, return_embeddings=True)
         return z
 
@@ -195,7 +196,7 @@ class FrozenCLIPTextEmbedder(nn.Module):
             param.requires_grad = False
 
     def forward(self, text):
-        tokens = clip.tokenize(text).to(next(self.model.parameters()).device)
+        tokens = clip.tokenize(text).to(self.model.token_embedding.weight.device)
         z = self.model.encode_text(tokens)
         if self.normalize:
             z = z / torch.linalg.norm(z, dim=1, keepdim=True)
@@ -326,7 +327,7 @@ class FrozenOpenCLIPEmbedder(AbstractEncoder):
         if isinstance(text, str):
             text = [text]
         tokens = self._tokenize(text)
-        device = next(self.model.parameters()).device
+        device = self.model.token_embedding.weight.device
         z = self.encode_with_transformer(tokens.to(device))
         return z
 
