@@ -65,7 +65,7 @@ class BERTTokenizer(AbstractEncoder):
         super().__init__()
         from transformers import BertTokenizerFast  # TODO: add to reuquirements
         self.tokenizer = BertTokenizerFast.from_pretrained("bert-base-uncased")
-        self.device = device
+        self.device = device if torch.cuda.is_available() else "cpu"
         self.vq_interface = vq_interface
         self.max_length = max_length
 
