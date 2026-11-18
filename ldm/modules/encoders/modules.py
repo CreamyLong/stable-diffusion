@@ -50,7 +50,7 @@ class TransformerEmbedder(AbstractEncoder):
                                               attn_layers=Encoder(dim=n_embed, depth=n_layer))
 
     def forward(self, tokens):
-        tokens = tokens.to(self.device)  # meh
+        tokens = tokens.to(self.transformer.token_emb.weight.device)  # follow the module, not the `device` arg
         z = self.transformer(tokens, return_embeddings=True)
         return z
 
@@ -65,7 +65,7 @@ class BERTTokenizer(AbstractEncoder):
         super().__init__()
         from transformers import BertTokenizerFast  # TODO: add to reuquirements
         self.tokenizer = BertTokenizerFast.from_pretrained("bert-base-uncased")
-        self.device = device
+        self.device = device if torch.cuda.is_available() else "cpu"
         self.vq_interface = vq_interface
         self.max_length = max_length
 
@@ -106,6 +106,8 @@ class BERTEmbedder(AbstractEncoder):
             tokens = self.tknz_fn(text)  # .to(self.device)
         else:
             tokens = text
+        # read the device from the weight itself: DataParallel replicas have an empty parameters()
+        tokens = tokens.to(self.transformer.token_emb.weight.device)
         z = self.transformer(tokens, return_embeddings=True)
         return z
 
@@ -150,7 +152,6 @@ class SpatialRescaler(nn.Module):
 class FrozenCLIPEmbedder(AbstractEncoder):
     """Uses the CLIP transformer encoder for text (from Hugging Face)"""
     def __init__(self, version="openai/clip-vit-large-patch14", device="cuda", max_length=77):
-    # def __init__(self, version="/opt/data/private/latent-diffusion/pre_trained_models/openai/clip-vit-large-patch14", device="cuda", max_length=77):
 
         super().__init__()
         self.tokenizer = CLIPTokenizer.from_pretrained(version)
@@ -167,7 +168,7 @@ class FrozenCLIPEmbedder(AbstractEncoder):
     def forward(self, text):
         batch_encoding = self.tokenizer(text, truncation=True, max_length=self.max_length, return_length=True,
                                         return_overflowing_tokens=False, padding="max_length", return_tensors="pt")
-        tokens = batch_encoding["input_ids"].to(self.device)
+        tokens = batch_encoding["input_ids"].to(self.transformer.device)
         outputs = self.transformer(input_ids=tokens)
 
         z = outputs.last_hidden_state
@@ -195,7 +196,7 @@ class FrozenCLIPTextEmbedder(nn.Module):
             param.requires_grad = False
 
     def forward(self, text):
-        tokens = clip.tokenize(text).to(self.device)
+        tokens = clip.tokenize(text).to(self.model.token_embedding.weight.device)
         z = self.model.encode_text(tokens)
         if self.normalize:
             z = z / torch.linalg.norm(z, dim=1, keepdim=True)
@@ -326,7 +327,7 @@ class FrozenOpenCLIPEmbedder(AbstractEncoder):
         if isinstance(text, str):
             text = [text]
         tokens = self._tokenize(text)
-        device = next(self.model.parameters()).device
+        device = self.model.token_embedding.weight.device
         z = self.encode_with_transformer(tokens.to(device))
         return z
 

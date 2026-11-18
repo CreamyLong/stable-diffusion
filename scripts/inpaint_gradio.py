@@ -1,10 +1,12 @@
 import argparse, os, sys, glob
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from omegaconf import OmegaConf
 from PIL import Image
 from tqdm import tqdm
 import numpy as np
 import torch
-from main import instantiate_from_config
+from ldm.util import instantiate_from_config
 from ldm.models.diffusion.ddim import DDIMSampler
 import gradio as gr
 from einops import repeat
@@ -98,12 +100,18 @@ def inpaint(sampler,image, mask, ddim_steps):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    # parser.add_argument(
-    #     "--indir",
-    #     type=str,
-    #     nargs="?",
-    #     help="dir containing image-mask pairs (`example.png` and `example_mask.png`)",
-    # )
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="models/ldm/inpainting_big/config.yaml",
+        help="model config (e.g. models/ldm/inpainting_big/config.yaml or configs/latent-diffusion/inpainting/*.yaml)",
+    )
+    parser.add_argument(
+        "--ckpt",
+        type=str,
+        default="models/ldm/inpainting_big/last.ckpt",
+        help="model checkpoint",
+    )
     parser.add_argument(
         "--outdir",
         type=str,
@@ -111,23 +119,13 @@ if __name__ == "__main__":
         default="./outputs",
         help="dir to write results to",
     )
-    # parser.add_argument(
-    #     "--steps",
-    #     type=int,
-    #     default=50,
-    #     help="number of ddim sampling steps",
-    # )
+    parser.add_argument("--share", action="store_true", help="create a public gradio link")
+    parser.add_argument("--port", type=int, default=None, help="gradio server port")
     opt = parser.parse_args()
-    #
-    # masks = sorted(glob.glob(os.path.join(opt.indir, "*_mask.png")))
-    # images = [x.replace("_mask.png", ".png") for x in masks]
-    # print(f"Found {len(masks)} inputs.")
 
-    config = OmegaConf.load(r"D:\PycharmProject\latent-diffusion\models\ldm\inpainting_big\config.yaml")
-    # config = OmegaConf.load(r"D:\PycharmProject\latent-diffusion\configs\latent-diffusion\inpainting\captain512_inpaint.yaml")
+    config = OmegaConf.load(opt.config)
     model = instantiate_from_config(config.model)
-    model.load_state_dict(torch.load(r"D:\PycharmProject\latent-diffusion\models\ldm\inpainting_big\last.ckpt")["state_dict"], strict=False)
-    # model.load_state_dict(torch.load(r"D:\PycharmProject\latent-diffusion\logs\2023-08-21T12-55-40_captain512_inpaint\checkpoints\epoch=000181.ckpt")["state_dict"], strict=False)
+    model.load_state_dict(torch.load(opt.ckpt, map_location="cpu")["state_dict"], strict=False)
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model = model.to(device)
@@ -163,6 +161,6 @@ if __name__ == "__main__":
 
         run_button.click(fn=predict, inputs=[input_image, ddim_steps, target_size], outputs=[gallery])
 
-    block.launch()
+    block.launch(share=opt.share, server_port=opt.port)
 
 

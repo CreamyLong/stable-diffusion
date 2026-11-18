@@ -47,7 +47,7 @@ model:
     first_stage_config:
       target: ldm.models.autoencoder.VQModelInterface
       params:
-        ckpt_path: pre_trained_models/first_stage_models/vq-f4/model.ckpt
+        ckpt_path: models/first_stage_models/vq-f4/model.ckpt
         embed_dim: 3
         n_embed: 8192
         monitor: val/rec_loss
