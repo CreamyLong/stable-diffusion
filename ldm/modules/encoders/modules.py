@@ -50,7 +50,7 @@ class TransformerEmbedder(AbstractEncoder):
                                               attn_layers=Encoder(dim=n_embed, depth=n_layer))
 
     def forward(self, tokens):
-        tokens = tokens.to(self.device)  # meh
+        tokens = tokens.to(next(self.transformer.parameters()).device)  # follow the module, not the `device` arg
         z = self.transformer(tokens, return_embeddings=True)
         return z
 
@@ -106,6 +106,7 @@ class BERTEmbedder(AbstractEncoder):
             tokens = self.tknz_fn(text)  # .to(self.device)
         else:
             tokens = text
+        tokens = tokens.to(next(self.transformer.parameters()).device)
         z = self.transformer(tokens, return_embeddings=True)
         return z
 
@@ -166,7 +167,7 @@ class FrozenCLIPEmbedder(AbstractEncoder):
     def forward(self, text):
         batch_encoding = self.tokenizer(text, truncation=True, max_length=self.max_length, return_length=True,
                                         return_overflowing_tokens=False, padding="max_length", return_tensors="pt")
-        tokens = batch_encoding["input_ids"].to(self.device)
+        tokens = batch_encoding["input_ids"].to(self.transformer.device)
         outputs = self.transformer(input_ids=tokens)
 
         z = outputs.last_hidden_state
@@ -194,7 +195,7 @@ class FrozenCLIPTextEmbedder(nn.Module):
             param.requires_grad = False
 
     def forward(self, text):
-        tokens = clip.tokenize(text).to(self.device)
+        tokens = clip.tokenize(text).to(next(self.model.parameters()).device)
         z = self.model.encode_text(tokens)
         if self.normalize:
             z = z / torch.linalg.norm(z, dim=1, keepdim=True)
