@@ -33,9 +33,12 @@ def main():
             print(k)
 
     for fname, prefix in PREFIXES.items():
+        out_path = os.path.join(outdir, fname)
+        if os.path.exists(out_path) and os.path.samefile(out_path, opt.ckpt):
+            raise ValueError(f"refusing to overwrite the input checkpoint {opt.ckpt}; pass a different --outdir")
         sub_sd = {k[len(prefix):]: v for k, v in sd.items() if k.startswith(prefix)}
-        torch.save({"state_dict": sub_sd}, os.path.join(outdir, fname))
-        print(f"saved {len(sub_sd)} tensors with prefix '{prefix}' to {os.path.join(outdir, fname)}")
+        torch.save({"state_dict": sub_sd}, out_path)
+        print(f"saved {len(sub_sd)} tensors with prefix '{prefix}' to {out_path}")
 
 
 if __name__ == "__main__":
