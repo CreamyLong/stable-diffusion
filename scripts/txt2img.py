@@ -1,4 +1,5 @@
 import argparse, os, sys, glob
+sys.path.append(os.getcwd())
 import torch
 import numpy as np
 from omegaconf import OmegaConf
@@ -26,13 +27,31 @@ def load_model_from_config(config, ckpt, verbose=False):
         print("unexpected keys:")
         print(u)
 
-    model.cuda()
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    model.to(device)
     model.eval()
     return model
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="configs/latent-diffusion/txt2img/txt2img-1p4B-eval.yaml",
+        help="path to config which constructs model",
+    )
+    parser.add_argument(
+        "--ckpt",
+        type=str,
+        default="models/ldm/text2img-large/model.ckpt",
+        help="path to checkpoint of model",
+    )
+    parser.add_argument(
+        "--dpm",
+        action='store_true',
+        help="use DPM-Solver sampling",
+    )
 
     parser.add_argument(
         "--prompt",
@@ -105,10 +124,8 @@ if __name__ == "__main__":
     opt = parser.parse_args()
 
 
-    # config = OmegaConf.load("pre_trained_models/ldm/text2img256/config.yaml")  # TODO: Optionally download from same location as ckpt and chnage this logic
-    config = OmegaConf.load("configs/latent-diffusion/txt2img/txt2img-1p4B-eval.yaml")  # TODO: Optionally download from same location as ckpt and chnage this logic
-
-    model = load_model_from_config(config, r"D:\PycharmProject\latent-diffusion\models\ldm\text2img-large\model.ckpt")  # TODO: check path
+    config = OmegaConf.load(opt.config)
+    model = load_model_from_config(config, opt.ckpt)
 
     device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
     model = model.to(device)

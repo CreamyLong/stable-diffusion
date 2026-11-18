@@ -1,4 +1,5 @@
-import argparse, os
+import argparse, os, sys
+sys.path.append(os.getcwd())
 from pytorch_lightning import seed_everything
 
 from genericpath import isdir
@@ -15,28 +16,54 @@ import torch
 from tqdm import tqdm
 from omegaconf import OmegaConf
 from ldm.util import instantiate_from_config
-from ldm.data.custom_segmentation import customTrain
+from ldm.data.custom_segmentation import customTrain, customValidation
 from torchvision import transforms
 
 
 def load_model_from_config(config, ckpt):
     print(f"Loading model from {ckpt}")
-    pl_sd = torch.load(ckpt)#, map_location="cpu")
+    pl_sd = torch.load(ckpt, map_location="cpu")
     sd = pl_sd["state_dict"]
     model = instantiate_from_config(config.model)
     m, u = model.load_state_dict(sd, strict=False)
-    model.cuda()
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    model.to(device)
     model.eval()
     return model
 
 
-def get_model():
-    config = OmegaConf.load("/opt/data/private/latent-diffusion/pre_trained_models/ldm/semantic_synthesis256/config.yaml")
-    model = load_model_from_config(config, "/opt/data/private/latent-diffusion/pre_trained_models/ldm/semantic_synthesis256/model.ckpt")
+def get_model(config_path, ckpt_path):
+    config = OmegaConf.load(config_path)
+    model = load_model_from_config(config, ckpt_path)
     return model
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="models/ldm/semantic_synthesis256/config.yaml",
+        help="path to config which constructs model",
+    )
+    parser.add_argument(
+        "--ckpt",
+        type=str,
+        default="models/ldm/semantic_synthesis256/model.ckpt",
+        help="path to checkpoint of model",
+    )
+    parser.add_argument(
+        "--split",
+        type=str,
+        default="train",
+        choices=["train", "validation"],
+        help="which split of ldm.data.custom_segmentation to sample masks from",
+    )
+    parser.add_argument(
+        "--n_batches",
+        type=int,
+        default=-1,
+        help="stop after this many batches (-1: the whole dataset)",
+    )
     parser.add_argument(
         "--seed",
         type=int,
@@ -96,13 +123,14 @@ def main():
     opt = parser.parse_args()
     seed_everything(opt.seed)
 
-    model = get_model()
+    model = get_model(opt.config, opt.ckpt)
+    device = model.device
 
     ddim_eta = 1
 
     batch_size = opt.batch_size
 
-    dataset = customTrain(size=256)
+    dataset = customTrain(size=opt.H) if opt.split == "train" else customValidation(size=opt.H)
 
     dataloader = DataLoader(dataset, batch_size=batch_size, num_workers=2, shuffle=False)
 
@@ -118,10 +146,12 @@ def main():
     with torch.no_grad():
         with model.ema_scope():
             for i, batch in enumerate(dataloader):
-                seg = batch['segmentation'].to('cuda')
+                if 0 <= opt.n_batches <= i:
+                    break
+                seg = batch['segmentation'].to(device)
                 seg = rearrange(seg, 'b h w c -> b c h w')
                 condition = model.to_rgb(seg)
-                seg = seg.to('cuda').float()
+                seg = seg.to(device).float()
 
                 c = model.get_learned_conditioning(seg)
 
@@ -130,7 +160,7 @@ def main():
 
                 samples_ddim, _ = sampler.sample(S=opt.ddim_steps,
                                                  conditioning=c,
-                                                 batch_size=batch_size,
+                                                 batch_size=seg.shape[0],
                                                  shape=shape,
                                                  verbose=False,
                                                  eta=ddim_eta)

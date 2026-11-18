@@ -1,5 +1,7 @@
-python scripts/txt2img.py --prompt "Teyvat, Medium Female, a woman in a blue outfit holding a sword" --plms \
-    --outdir ./output \
-    --ckpt checkpoints/last.ckpt \
-    --config configs/2023-02-02T18-06-14-project.yaml \
-    --n_samples 4
+#!/bin/bash
+# Text-to-image sampling. Run from the repository root.
+python scripts/txt2img.py --prompt "a virus monster is playing guitar, oil on canvas" --plms \
+    --config configs/latent-diffusion/txt2img/txt2img-1p4B-eval.yaml \
+    --ckpt models/ldm/text2img-large/model.ckpt \
+    --outdir outputs/txt2img-samples \
+    --ddim_steps 50 --scale 5.0 --n_samples 4

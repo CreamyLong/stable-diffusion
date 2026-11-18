@@ -63,5 +63,5 @@ model:
           attn_resolutions: []
           dropout: 0.0
         lossconfig:
-          target: ldm.modules.losses.contperceptual.DummyLoss
+          target: ldm.modules.losses.DummyLoss
     cond_stage_config: __is_first_stage__

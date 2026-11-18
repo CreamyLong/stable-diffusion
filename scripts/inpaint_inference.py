@@ -1,4 +1,6 @@
-import argparse, os, glob
+import argparse, os, sys, glob
+sys.path.append(os.getcwd())
+sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from omegaconf import OmegaConf
 from PIL import Image
 from tqdm import tqdm
@@ -94,12 +96,12 @@ if __name__ == "__main__":
     config = OmegaConf.load(opt.yaml_profile)
     model = instantiate_from_config(config.model)
 
-    model.load_state_dict(torch.load(opt.ckpt)["state_dict"],
+    model.load_state_dict(torch.load(opt.ckpt, map_location="cpu")["state_dict"],
                           strict=False)
 
     print("Loading modeling from %s" % opt.ckpt)
 
-    device = torch.device(opt.device) if torch.cuda.is_available() and opt.device is not "cpu" else torch.device("cpu")
+    device = torch.device(opt.device) if torch.cuda.is_available() and opt.device != "cpu" else torch.device("cpu")
 
     model = model.to(device)
 

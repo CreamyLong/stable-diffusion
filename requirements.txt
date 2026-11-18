@@ -12,4 +12,6 @@ torch-fidelity==0.3.0
 transformers==4.36.0
 torchmetrics==0.7.0
 kornia==0.6.4
+open_clip_torch==2.20.0
+timm==0.6.12
 -e git+https://github.com/arogozhnikov/einops.git@main#egg=einops

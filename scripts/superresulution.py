@@ -2,53 +2,51 @@
 import argparse, os, sys
 sys.path.append(os.getcwd())
 
-import torch
-from omegaconf import OmegaConf
-from ldm.util import instantiate_from_config
-from torchvision.datasets.utils import download_url
-import torch
-import os
-# todo ?
-# from IPython.display import Image as ipyimg
-from PIL import Image
-from numpy import asarray
-from einops import rearrange, repeat
-import torch, torchvision
-from ldm.models.diffusion.ddim import DDIMSampler
-from ldm.util import ismap
 import time
+
+import numpy as np
+import torch
+import torchvision
+from PIL import Image
+from einops import rearrange, repeat
 from omegaconf import OmegaConf
+
+from ldm.util import instantiate_from_config, ismap
+from ldm.models.diffusion.ddim import DDIMSampler
 
 def load_model_from_config(config, sd):
     model = instantiate_from_config(config)
-    model.load_state_dict(sd, strict=False)
-    model.cuda()
+    if sd is not None:
+        model.load_state_dict(sd, strict=False)
+    device = torch.device("cuda") if torch.cuda.is_available() else torch.device("cpu")
+    model.to(device)
     model.eval()
     return model
 
-def load_model(config, ckpt, gpu, eval_mode):
+def load_model(config, ckpt):
     if ckpt:
         print(f"Loading model from {ckpt}")
         pl_sd = torch.load(ckpt, map_location="cpu")
-        global_step = pl_sd["global_step"]
+        global_step = pl_sd.get("global_step")
     else:
         pl_sd = {"state_dict": None}
         global_step = None
     model = load_model_from_config(config.model, pl_sd["state_dict"])
     return model, global_step
 
-def get_cond(selected_path):
+def get_cond(selected_path, device):
     example = dict()
     up_f = 4
 
-    c = Image.open(selected_path)
+    c = Image.open(selected_path).convert("RGB")
     c = torch.unsqueeze(torchvision.transforms.ToTensor()(c), 0)
     c_up = torchvision.transforms.functional.resize(c, size=[up_f * c.shape[2], up_f * c.shape[3]], antialias=True)
     c_up = rearrange(c_up, '1 c h w -> 1 h w c')
     c = rearrange(c, '1 c h w -> 1 h w c')
     c = 2. * c - 1.
 
-    c = c.to(torch.device("cuda"))
+    c = c.to(device)
+    c_up = c_up.to(device)
     example["LR_image"] = c
     example["image"] = c_up
 
@@ -89,7 +87,7 @@ def make_convolutional_sample(batch, model, mode="vanilla", custom_steps=None, e
     log_every_t = 1 if save_intermediate_vid else None
 
     if custom_shape is not None:
-        z = torch.randn(custom_shape)
+        z = torch.randn(custom_shape, device=model.device)
         print(f"Generating {custom_shape[0]} samples of shape {custom_shape[1:]}")
 
     z0 = None
@@ -141,7 +139,7 @@ def make_convolutional_sample(batch, model, mode="vanilla", custom_steps=None, e
 
 def run(model, selected_path, custom_steps, resize_enabled=False, classifier_ckpt=None, global_step=None):
 
-    example = get_cond(selected_path)
+    example = get_cond(selected_path, model.device)
 
     save_intermediate_vid = False
     n_runs = 1
@@ -195,33 +193,29 @@ def run(model, selected_path, custom_steps, resize_enabled=False, classifier_ckp
     return logs
 
 if __name__ == "__main__":
-    base_configs = './models/ldm/bsr_sr/config.yaml'
-    config = OmegaConf.load(base_configs)
-    ckpt = './models/ldm/bsr_sr/last.ckpt'
-    gpu = True
-    eval_mode = True
+    parser = argparse.ArgumentParser(description="4x super-resolution with the LDM BSR model")
+    parser.add_argument("--config", type=str, default="models/ldm/bsr_sr/config.yaml",
+                        help="path to config which constructs model")
+    parser.add_argument("--ckpt", type=str, default="models/ldm/bsr_sr/model.ckpt",
+                        help="path to checkpoint of model")
+    parser.add_argument("--input", type=str, default="data/example_conditioning/superresolution/sample_0.jpg",
+                        help="low-resolution input image")
+    parser.add_argument("--output", type=str, default=None,
+                        help="where to save the result (default: <input>_sr.png)")
+    parser.add_argument("--steps", type=int, default=100, help="number of ddim sampling steps")
+    opt = parser.parse_args()
 
-
-    model, global_step = load_model(config, ckpt, gpu, eval_mode)
-    print(model)
+    config = OmegaConf.load(opt.config)
+    model, global_step = load_model(config, opt.ckpt)
     print("Model loaded successfully!")
-    custom_steps = 100
-    # cond_choice_path = os.path.join(dir, image_name)
-    cond_choice_path = "./data/example_conditioning/superresolution/sample_0.jpg"
 
-    logs = run(model, cond_choice_path, custom_steps)
+    logs = run(model, opt.input, opt.steps, global_step=global_step)
 
-    import torch
-    import numpy as np
-    from PIL import Image
-
-    sample = logs["sample"]
-    sample = sample.detach().cpu()
+    sample = logs["sample"].detach().cpu()
     sample = torch.clamp(sample, -1., 1.)
-    sample = (sample + 1.) / 2. * 255
-    sample = sample.numpy().astype(np.uint8)
+    sample = ((sample + 1.) / 2. * 255).numpy().astype(np.uint8)
     sample = np.transpose(sample, (0, 2, 3, 1))
-    print(sample.shape)
-    a = Image.fromarray(sample[0])
-    #save the image
-    a.save("./data/example_conditioning/superresolution/sample_0_sr.jpg")
+    output = opt.output or os.path.splitext(opt.input)[0] + "_sr.png"
+    os.makedirs(os.path.dirname(os.path.abspath(output)), exist_ok=True)
+    Image.fromarray(sample[0]).save(output)
+    print(f"Saved {sample.shape[1]}x{sample.shape[2]} result to {output}")
